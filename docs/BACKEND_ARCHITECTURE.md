@@ -453,7 +453,7 @@ export function adminMiddleware(req: AuthRequest, res: Response, next: NextFunct
 
 ```bash
 # 1. Clone repo
-git clone https://github.com/your-org/papuyu.git
+git clone https://github.com/basoro/papuyu.git
 cd papuyu
 
 # 2. Copy environment file

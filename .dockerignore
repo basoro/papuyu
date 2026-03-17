@@ -1,0 +1,4 @@
+node_modules
+apps/backend
+dist
+.git
