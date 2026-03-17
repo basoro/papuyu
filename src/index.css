@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 7%;
+    --foreground: 0 0% 96%;
+
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 220 80% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 96%;
+
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 96%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 150 60% 50%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 0 0% 100% / 0.08;
+    --input: 0 0% 100% / 0.08;
+    --ring: 220 80% 60%;
+
+    --radius: 0.375rem;
+
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 0 0% 70%;
+    --sidebar-primary: 220 80% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 100% / 0.06;
+    --sidebar-ring: 220 80% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-label {
+    @apply text-xs uppercase tracking-widest text-muted-foreground;
+  }
+
+  .stat-value {
+    @apply text-2xl font-semibold tabular-nums text-foreground;
+  }
+
+  .terminal {
+    @apply bg-background p-4 font-mono text-sm rounded-md border overflow-auto;
+  }
+
+  .status-dot {
+    @apply w-3 h-3 rounded-full inline-block flex-shrink-0;
+  }
+
+  .status-dot-running {
+    @apply status-dot bg-success animate-pulse;
+  }
+
+  .status-dot-building {
+    @apply status-dot bg-warning animate-pulse;
+  }
+
+  .status-dot-stopped {
+    @apply status-dot bg-muted-foreground;
+  }
+
+  .status-dot-failed {
+    @apply status-dot bg-destructive;
+  }
+
+  .status-dot-idle {
+    @apply status-dot bg-muted-foreground/50;
+  }
+
+  .papuyu-btn-active:active {
+    transform: translateY(2px);
+  }
+}
