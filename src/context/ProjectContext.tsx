@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { apiRequest, API_URL } from "../lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { io, Socket } from "socket.io-client";
+import { useAuth } from "./AuthContext";
 
 export interface Project {
   id: string;
@@ -42,6 +43,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { token } = useAuth();
 
   useEffect(() => {
     // Determine socket URL: if API_URL is relative or localhost, 
@@ -76,6 +78,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchProjects = useCallback(async () => {
+    if (!token) {
+      setProjects([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const data = await apiRequest("/projects");
       // Initialize logs as empty array if not provided by backend
@@ -89,7 +97,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     fetchProjects();
