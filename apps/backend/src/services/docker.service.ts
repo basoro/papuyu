@@ -8,8 +8,40 @@ export function buildImage(projectId: string, buildDir: string, dockerfilePath: 
   // Ensure the Dockerfile path is absolute relative to the build directory
   const absoluteDockerfilePath = path.join(buildDir, dockerfilePath);
   
+  // Read .env file if exists to construct build-args
+  const envPath = path.join(buildDir, '.env');
+  let buildArgs = '';
+  
+  if (fs.existsSync(envPath)) {
+    try {
+      const envContent = fs.readFileSync(envPath, 'utf-8');
+      const lines = envContent.split('\n');
+      
+      const args = lines
+        .filter(line => line.trim() !== '' && !line.startsWith('#'))
+        .map(line => {
+          const [key, ...rest] = line.split('=');
+          if (key && rest.length > 0) {
+            const value = rest.join('='); // Rejoin value in case it contained =
+            // Escape double quotes in value if present
+            const safeValue = value.replace(/"/g, '\\"');
+            return `--build-arg ${key.trim()}="${safeValue.trim()}"`;
+          }
+          return null;
+        })
+        .filter(arg => arg !== null);
+        
+      if (args.length > 0) {
+        buildArgs = args.join(' ');
+        console.log(`Detected ${args.length} environment variables, passing as build-args`);
+      }
+    } catch (e) {
+      console.warn('Failed to parse .env for build-args', e);
+    }
+  }
+
   execSync(
-    `docker build -t ${imageName} -f ${absoluteDockerfilePath} ${buildDir}`,
+    `docker build -t ${imageName} -f ${absoluteDockerfilePath} ${buildArgs} ${buildDir}`,
     { timeout: 300_000, stdio: 'pipe' }
   );
 }
