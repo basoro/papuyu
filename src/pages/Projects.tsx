@@ -22,9 +22,9 @@ export default function Projects() {
     git_repository: "",
     branch: "main",
     project_type: "dockerfile", // "dockerfile" | "compose"
-    dockerfile_path: "./Dockerfile",
+    dockerfile_path: "Dockerfile",
     compose_file: "docker-compose.yml",
-    port: "3000",
+    port: "80",
     env_vars: [] as { key: string; value: string }[],
     subdomain: "",
   });
@@ -49,9 +49,9 @@ export default function Projects() {
       git_repository: "", 
       branch: "main", 
       project_type: "dockerfile",
-      dockerfile_path: "./Dockerfile", 
+      dockerfile_path: "Dockerfile", 
       compose_file: "docker-compose.yml",
-      port: "3000",
+      port: "80",
       env_vars: [],
       subdomain: "",
     });
@@ -228,7 +228,7 @@ export default function Projects() {
               {form.project_type === "dockerfile" ? (
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Dockerfile Path</Label>
-                  <Input placeholder="./Dockerfile" value={form.dockerfile_path} onChange={e => setForm({ ...form, dockerfile_path: e.target.value })} className="bg-background font-mono text-sm" />
+                  <Input placeholder="Dockerfile" value={form.dockerfile_path} onChange={e => setForm({ ...form, dockerfile_path: e.target.value })} className="bg-background font-mono text-sm" />
                 </div>
               ) : (
                 <div className="space-y-1.5">

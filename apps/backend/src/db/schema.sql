@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS projects (
   git_repository  TEXT NOT NULL,
   branch          TEXT DEFAULT 'main',
   project_type    TEXT DEFAULT 'dockerfile', -- 'dockerfile' | 'compose'
-  dockerfile_path TEXT DEFAULT './Dockerfile',
+  dockerfile_path TEXT DEFAULT 'Dockerfile',
   compose_file    TEXT DEFAULT 'docker-compose.yml',
   port            INTEGER DEFAULT 3000,
   env_vars        TEXT,                  -- JSON stringified: [{"key": "DB_HOST", "value": "localhost"}]

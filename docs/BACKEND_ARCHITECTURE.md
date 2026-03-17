@@ -74,7 +74,7 @@ CREATE TABLE projects (
   name            TEXT NOT NULL,
   git_repository  TEXT NOT NULL,
   branch          TEXT DEFAULT 'main',
-  dockerfile_path TEXT DEFAULT './Dockerfile',
+  dockerfile_path TEXT DEFAULT 'Dockerfile',
   port            INTEGER DEFAULT 3000,
   container_id    TEXT,                  -- Docker container ID
   status          TEXT DEFAULT 'idle',   -- idle | building | running | stopped | failed
