@@ -5,8 +5,11 @@ import { config } from '../config/env';
 
 export function buildImage(projectId: string, buildDir: string, dockerfilePath: string): void {
   const imageName = `papuyu-${projectId}:latest`;
+  // Ensure the Dockerfile path is absolute relative to the build directory
+  const absoluteDockerfilePath = path.join(buildDir, dockerfilePath);
+  
   execSync(
-    `docker build -t ${imageName} -f ${dockerfilePath} ${buildDir}`,
+    `docker build -t ${imageName} -f ${absoluteDockerfilePath} ${buildDir}`,
     { timeout: 300_000, stdio: 'pipe' }
   );
 }
