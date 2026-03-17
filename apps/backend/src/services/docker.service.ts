@@ -28,7 +28,7 @@ export function runContainer(projectId: string, port: number, subdomain?: string
 
   const labels = [
     `--label "traefik.enable=true"`,
-    `--label "traefik.http.routers.papuyu-${projectId}.rule=Host(\`${host}\`)"`,
+    `--label "traefik.http.routers.papuyu-${projectId}.rule=Host(\\\`${host}\\\`)"`,
     `--label "traefik.http.routers.papuyu-${projectId}.service=papuyu-${projectId}"`,
     `--label "traefik.http.routers.papuyu-${projectId}.entrypoints=websecure"`,
     `--label "traefik.http.routers.papuyu-${projectId}.tls=true"`,
