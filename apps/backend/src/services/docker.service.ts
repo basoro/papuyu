@@ -194,14 +194,36 @@ function resolveComposeFile(buildDir: string, composeFile: string): string {
 function getComposeService(buildDir: string, composeFile: string, envPath: string): string {
   try {
       const filePath = resolveComposeFile(buildDir, composeFile);
-      const args = ['compose', '-p', 'papuyu-temp', '-f', filePath];
-      if (fs.existsSync(envPath)) {
-        args.push('--env-file', envPath);
-      }
-      args.push('config', '--services');
       
-      const output = runDocker(args, { timeout: 5000 }).trim();
-      const services = output.split('\n').filter((s: string) => s.trim() !== '');
+      // Instead of relying purely on docker compose config which fails on invalid volume/network references,
+      // we can try to parse the yaml file directly if possible, or fallback to parsing the file content manually.
+      // A quick fallback is to read the file and extract service names using regex.
+      const content = fs.readFileSync(filePath, 'utf-8');
+      
+      // Simple regex to find service names under 'services:'
+      const servicesMatch = content.match(/^services:\s*\n((?:\s+[a-zA-Z0-9_-]+:\s*\n(?:(?!\s+[a-zA-Z0-9_-]+:\s*\n|\S).*\n)*)+)/m);
+      let services: string[] = [];
+      
+      if (servicesMatch && servicesMatch[1]) {
+         const servicesBlock = servicesMatch[1];
+         const serviceNameRegex = /^\s{2}([a-zA-Z0-9_-]+):/gm;
+         let match;
+         while ((match = serviceNameRegex.exec(servicesBlock)) !== null) {
+             services.push(match[1]);
+         }
+      }
+
+      if (services.length === 0) {
+          // Fallback to docker compose config if regex fails (though config might throw)
+          const args = ['compose', '-p', 'papuyu-temp', '-f', filePath];
+          if (fs.existsSync(envPath)) {
+            args.push('--env-file', envPath);
+          }
+          args.push('config', '--services');
+          
+          const output = runDocker(args, { timeout: 5000 }).trim();
+          services = output.split('\n').filter((s: string) => s.trim() !== '');
+      }
 
       // Heuristic: Prefer services that look like web servers
       const priorities = ['nginx', 'web', 'app', 'frontend', 'server', 'api'];
