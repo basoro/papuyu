@@ -54,7 +54,7 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
     logMessage(projectId, `Cloning ${project.git_repository}...`);
 
     // Step 1: Clone
-    const buildDir = cloneRepository(projectId, project.git_repository, project.branch);
+    const buildDir = await cloneRepository(projectId, project.git_repository, project.branch, (msg) => logMessage(projectId, msg));
     logMessage(projectId, 'Repository cloned successfully');
 
     // Step 1.5: Inject Env Vars
@@ -79,7 +79,7 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
 
        // Docker Compose Logic
        logMessage(projectId, `Starting Docker Compose with ${project.compose_file}...`);
-       composeUp(projectId, buildDir, project.compose_file, project.port, project.subdomain || undefined);
+       await composeUp(projectId, buildDir, project.compose_file, project.port, project.subdomain || undefined, (msg) => logMessage(projectId, msg));
        logMessage(projectId, 'Docker Compose services started');
        containerId = 'compose-group';
 
@@ -92,11 +92,11 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
 
       // Dockerfile Logic
       logMessage(projectId, `Building Docker image papuyu-${projectId}:latest...`);
-      buildImage(projectId, buildDir, project.dockerfile_path);
+      await buildImage(projectId, buildDir, project.dockerfile_path, (msg) => logMessage(projectId, msg));
       logMessage(projectId, 'Docker image built successfully');
   
       logMessage(projectId, `Starting container on port ${project.port}...`);
-      containerId = runContainer(projectId, project.port, project.subdomain || undefined);
+      containerId = await runContainer(projectId, project.port, project.subdomain || undefined, (msg) => logMessage(projectId, msg));
       logMessage(projectId, `Container running: ${containerId.substring(0, 12)}`);
     }
 

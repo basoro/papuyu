@@ -1,9 +1,40 @@
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { config } from '../config/env';
 
-export function buildImage(projectId: string, buildDir: string, dockerfilePath: string): void {
+function execStream(command: string, options: any, onLog?: (msg: string) => void): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(command, { ...options, shell: true });
+    
+    let output = '';
+
+    proc.stdout?.on('data', (data) => {
+      const str = data.toString();
+      output += str;
+      if (onLog) {
+         str.split('\n').filter(Boolean).forEach((line: string) => onLog(line));
+      }
+    });
+
+    proc.stderr?.on('data', (data) => {
+      const str = data.toString();
+      output += str;
+      if (onLog) {
+         str.split('\n').filter(Boolean).forEach((line: string) => onLog(line));
+      }
+    });
+
+    proc.on('close', (code) => {
+      if (code === 0) resolve(output.trim());
+      else reject(new Error(`Command failed with code ${code}`));
+    });
+    
+    proc.on('error', (err) => reject(err));
+  });
+}
+
+export async function buildImage(projectId: string, buildDir: string, dockerfilePath: string, onLog?: (msg: string) => void): Promise<void> {
   const imageName = `papuyu-${projectId}:latest`;
   // Ensure the Dockerfile path is absolute relative to the build directory
   const absoluteDockerfilePath = path.join(buildDir, dockerfilePath);
@@ -18,8 +49,8 @@ export function buildImage(projectId: string, buildDir: string, dockerfilePath: 
       const lines = envContent.split('\n');
       
       const args = lines
-        .filter(line => line.trim() !== '' && !line.startsWith('#'))
-        .map(line => {
+        .filter((line: string) => line.trim() !== '' && !line.startsWith('#'))
+        .map((line: string) => {
           const [key, ...rest] = line.split('=');
           if (key && rest.length > 0) {
             const value = rest.join('='); // Rejoin value in case it contained =
@@ -29,29 +60,34 @@ export function buildImage(projectId: string, buildDir: string, dockerfilePath: 
           }
           return null;
         })
-        .filter(arg => arg !== null);
+        .filter((arg: any) => arg !== null);
         
       if (args.length > 0) {
         buildArgs = args.join(' ');
-        console.log(`Detected ${args.length} environment variables, passing as build-args`);
+        if (onLog) onLog(`Detected ${args.length} environment variables, passing as build-args`);
+        else console.log(`Detected ${args.length} environment variables, passing as build-args`);
       }
     } catch (e) {
-      console.warn('Failed to parse .env for build-args', e);
+      if (onLog) onLog(`Failed to parse .env for build-args: ${e}`);
+      else console.warn('Failed to parse .env for build-args', e);
     }
   }
 
-  execSync(
-    `docker build -t ${imageName} -f ${absoluteDockerfilePath} ${buildArgs} ${buildDir}`,
-    { timeout: 300_000, stdio: 'pipe' }
+  await execStream(
+    `docker build -t ${imageName} -f ${absoluteDockerfilePath} ${buildArgs} ${buildDir}`, 
+    { cwd: buildDir }, 
+    onLog
   );
 }
 
-export function runContainer(projectId: string, port: number, subdomain?: string): string {
+export async function runContainer(projectId: string, port: number, subdomain?: string, onLog?: (msg: string) => void): Promise<string> {
   const imageName = `papuyu-${projectId}:latest`;
   const containerName = `papuyu-${projectId}`;
 
   // Stop & remove existing container if any
-  try { execSync(`docker rm -f ${containerName}`, { stdio: 'pipe' }); } catch {}
+  try { 
+    await execStream(`docker rm -f ${containerName}`, {}, onLog); 
+  } catch {}
 
   const domain = config.domain;
   // Sanitize projectId for DNS (replace _ with -)
@@ -67,15 +103,16 @@ export function runContainer(projectId: string, port: number, subdomain?: string
     `--label "traefik.http.routers.papuyu-${projectId}.tls.certresolver=myresolver"`,
     `--label "traefik.http.services.papuyu-${projectId}.loadbalancer.server.port=${port}"`,
     `--label "traefik.docker.network=papuyu-network"`
-  ].join(' ');
+  ];
 
   // Connect to papuyu-network and do NOT map host port
-  const output = execSync(
-    `docker run -d --name ${containerName} --network papuyu-network ${labels} ${imageName}`,
-    { timeout: 30_000 }
-  ).toString().trim();
+  const output = await execStream(
+    `docker run -d --name ${containerName} --network papuyu-network ${labels.join(' ')} ${imageName}`,
+    {},
+    onLog
+  );
 
-  return output; // container ID
+  return output.trim(); // container ID
 }
 
 export function stopContainer(containerName: string): void {
@@ -126,7 +163,7 @@ function getComposeService(buildDir: string, composeFile: string, envPath: strin
       const envFlag = fs.existsSync(envPath) ? `--env-file ${envPath}` : '';
       // We use the project name 'papuyu-temp' just for config parsing to avoid warnings
       const output = execSync(`docker compose -p papuyu-temp -f ${filePath} ${envFlag} config --services`, { timeout: 5000, stdio: 'pipe' }).toString().trim();
-      const services = output.split('\n').filter(s => s.trim() !== '');
+      const services = output.split('\n').filter((s: string) => s.trim() !== '');
 
       // Heuristic: Prefer services that look like web servers
       const priorities = ['nginx', 'web', 'app', 'frontend', 'server', 'api'];
@@ -255,7 +292,7 @@ export function replacePortInDockerfile(buildDir: string, dockerfilePath: string
   }
 }
 
-export function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string): void {
+export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, onLog?: (msg: string) => void): Promise<void> {
   const projectName = `papuyu-${projectId}`.toLowerCase();
   const filePath = resolveComposeFile(buildDir, composeFile);
   const envPath = path.join(buildDir, '.env');
@@ -291,12 +328,14 @@ networks:
       const overridePath = path.join(buildDir, 'docker-compose.override.yml');
       fs.writeFileSync(overridePath, overrideContent);
       overrideFlag = `-f ${overridePath}`;
-      console.log(`Generated override file for service ${serviceName} with Traefik labels`);
+      if (onLog) onLog(`Generated override file for service ${serviceName} with Traefik labels`);
+      else console.log(`Generated override file for service ${serviceName} with Traefik labels`);
   }
 
-  execSync(
+  await execStream(
     `docker compose -p ${projectName} -f ${filePath} ${overrideFlag} ${envFlag} up -d --build`,
-    { timeout: 600_000, stdio: 'pipe' }
+    { timeout: 600_000, cwd: buildDir },
+    onLog
   );
 }
 
