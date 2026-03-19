@@ -104,7 +104,13 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
       .run('running', containerId.substring(0, 12), projectId);
     
     if (io) io.emit('project-update', { id: projectId, status: 'running', container_id: containerId.substring(0, 12) });
-    logMessage(projectId, 'Deployment completed successfully', 'success');
+    
+    // Add finishing logs with SSL delay notice
+    logMessage(projectId, '=======================================================', 'info');
+    logMessage(projectId, '🚀 DEPLOYMENT COMPLETED SUCCESSFULLY!', 'success');
+    logMessage(projectId, '=======================================================', 'info');
+    logMessage(projectId, '⏳ Please wait up to 1-2 minutes for Traefik to provision the SSL certificate from Let\'s Encrypt.', 'info');
+    logMessage(projectId, '🌐 Your application will be accessible securely via HTTPS shortly.', 'info');
 
   } catch (err: any) {
     logMessage(projectId, `Deploy failed: ${err.message}`, 'error');
