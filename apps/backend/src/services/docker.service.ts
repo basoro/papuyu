@@ -200,18 +200,8 @@ function getComposeService(buildDir: string, composeFile: string, envPath: strin
       }
       args.push('config', '--services');
       
-      // Use execFileSync directly to avoid issues with our runDocker wrapper during parsing
-      const output = runDocker(args, { timeout: 5000, cwd: buildDir }).trim();
+      const output = runDocker(args, { timeout: 5000 }).trim();
       const services = output.split('\n').filter((s: string) => s.trim() !== '');
-
-      if (services.length === 0) {
-        throw new Error('No services found in compose file');
-      }
-
-      // If there's only one service, use it regardless of heuristics
-      if (services.length === 1) {
-        return services[0];
-      }
 
       // Heuristic: Prefer services that look like web servers
       const priorities = ['nginx', 'web', 'app', 'frontend', 'server', 'api'];
@@ -219,9 +209,9 @@ function getComposeService(buildDir: string, composeFile: string, envPath: strin
         if (services.includes(p)) return p;
       }
 
-      return services[0]; // Return the first service as fallback
+      return services[0] || 'app'; // Return the first service
   } catch (e) {
-      console.warn(`Failed to get compose services from ${composeFile}, defaulting to "app"`, e);
+      console.warn('Failed to get compose services, defaulting to "app"', e);
       return 'app';
   }
 }
