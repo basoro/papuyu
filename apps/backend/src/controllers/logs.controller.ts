@@ -11,7 +11,11 @@ export function getDeploymentLogs(req: AuthRequest, res: Response) {
   
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const logs = db.prepare('SELECT * FROM deployment_logs WHERE project_id = ? ORDER BY created_at DESC LIMIT 100').all(projectId);
+  const logs = db.prepare(`
+    SELECT * FROM (
+      SELECT * FROM deployment_logs WHERE project_id = ? ORDER BY created_at DESC LIMIT 100
+    ) sub ORDER BY created_at ASC
+  `).all(projectId);
   res.json(logs);
 }
 
