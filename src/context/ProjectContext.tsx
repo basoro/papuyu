@@ -30,6 +30,7 @@ interface ProjectContextType {
   getProject: (id: string) => Project | undefined;
   deployProject: (id: string) => Promise<void>;
   stopProject: (id: string) => Promise<void>;
+  startProject: (id: string) => Promise<void>;
   restartProject: (id: string) => Promise<void>;
   refreshLogs: (id: string) => Promise<void>;
   subscribeToLogs: (projectId: string, callback: (log: any) => void) => () => void;
@@ -157,6 +158,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const startProject = async (id: string) => {
+    try {
+      await apiRequest(`/start/${id}`, "POST");
+      setProjects((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: "running" } : p))
+      );
+      toast({ title: "Project started", description: "Container started successfully." });
+    } catch (error: any) {
+      toast({ title: "Failed to start project", description: error.message, variant: "destructive" });
+    }
+  };
+
   const restartProject = async (id: string) => {
     try {
        setProjects((prev) =>
@@ -210,6 +223,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         getProject,
         deployProject,
         stopProject,
+        startProject,
         restartProject,
         refreshLogs,
         subscribeToLogs,

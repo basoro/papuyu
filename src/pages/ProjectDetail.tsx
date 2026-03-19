@@ -4,7 +4,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Terminal } from "@/components/Terminal";
 import { useProjects } from "@/context/ProjectContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Play, Square, RotateCcw, Trash2, GitBranch, ExternalLink } from "lucide-react";
+import { ArrowLeft, Play, Square, RotateCcw, Trash2, GitBranch, ExternalLink, Rocket } from "lucide-react";
 
 const statusClasses: Record<string, string> = {
   running: "status-dot-running",
@@ -17,7 +17,7 @@ const statusClasses: Record<string, string> = {
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getProject, deployProject, stopProject, restartProject, deleteProject, refreshLogs, subscribeToLogs } = useProjects();
+  const { getProject, deployProject, stopProject, startProject, restartProject, deleteProject, refreshLogs, subscribeToLogs } = useProjects();
   const project = getProject(id || "");
 
   useEffect(() => {
@@ -95,7 +95,16 @@ export default function ProjectDetail() {
             disabled={project.status === "building"}
             className="papuyu-btn-active"
           >
-            <Play className="h-3 w-3 mr-1" /> Deploy
+            <Rocket className="h-3 w-3 mr-1" /> Deploy
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => startProject(project.id)}
+            disabled={project.status !== "stopped" && project.status !== "failed" && project.status !== "idle"}
+            className="papuyu-btn-active"
+          >
+            <Play className="h-3 w-3 mr-1" /> Start
           </Button>
           <Button
             size="sm"

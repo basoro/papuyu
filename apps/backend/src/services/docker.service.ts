@@ -116,7 +116,20 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
 }
 
 export function stopContainer(containerName: string): void {
-  execSync(`docker stop ${containerName}`, { timeout: 30_000 });
+  try {
+    execSync(`docker stop ${containerName}`, { timeout: 30_000, stdio: 'pipe' });
+  } catch (e) {
+    console.warn(`Failed to stop container ${containerName}`, e);
+  }
+}
+
+export function startContainer(containerName: string): void {
+  try {
+    execSync(`docker start ${containerName}`, { timeout: 30_000, stdio: 'pipe' });
+  } catch (e) {
+    console.warn(`Failed to start container ${containerName}`, e);
+    throw e;
+  }
 }
 
 export function restartContainer(containerName: string): void {
@@ -363,12 +376,31 @@ export function composeDown(projectId: string, buildDir: string, composeFile: st
 
 export function composeStop(projectId: string, buildDir: string, composeFile: string): void {
   const projectName = `papuyu-${projectId}`.toLowerCase();
-  const filePath = resolveComposeFile(buildDir, composeFile);
   
-  execSync(
-    `docker compose -p ${projectName} -f ${filePath} stop`,
-    { timeout: 60_000, stdio: 'pipe' }
-  );
+  try {
+    const containers = execSync(`docker ps -a -q --filter "label=com.docker.compose.project=${projectName}"`).toString().trim().split('\n');
+    if (containers.length > 0 && containers[0] !== '') {
+      execSync(`docker stop ${containers.join(' ')}`, { stdio: 'pipe' });
+    }
+  } catch (e) {
+    console.warn(`Fallback stop failed for compose project ${projectName}`, e);
+  }
+}
+
+export function composeStart(projectId: string, buildDir: string, composeFile: string): void {
+  const projectName = `papuyu-${projectId}`.toLowerCase();
+  
+  try {
+    const containers = execSync(`docker ps -a -q --filter "label=com.docker.compose.project=${projectName}"`).toString().trim().split('\n');
+    if (containers.length > 0 && containers[0] !== '') {
+      execSync(`docker start ${containers.join(' ')}`, { stdio: 'pipe' });
+    } else {
+      throw new Error('No containers found for this project');
+    }
+  } catch (e) {
+    console.warn(`Failed to start compose project ${projectName}`, e);
+    throw e;
+  }
 }
 
 export function composeRestart(projectId: string, buildDir: string, composeFile: string): void {

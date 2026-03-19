@@ -6,8 +6,10 @@ import path from 'path';
 import { 
   restartContainer, 
   stopContainer, 
+  startContainer,
   composeRestart, 
   composeStop,
+  composeStart,
 } from '../services/docker.service';
 
 const BUILD_DIR = process.env.BUILD_DIR || '/tmp/papuyu-builds';
@@ -62,6 +64,31 @@ export function restartProject(req: AuthRequest, res: Response) {
     res.json({ message: 'Project restarted' });
   } catch (err: any) {
     logMessage(projectId, `Restart failed: ${err.message}`, 'error');
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export function startProject(req: AuthRequest, res: Response) {
+  const { projectId } = req.params;
+  const userId = req.userId!;
+  
+  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+  
+  try {
+    if (project.project_type === 'compose') {
+      const buildDir = path.join(BUILD_DIR, projectId);
+      composeStart(projectId, buildDir, project.compose_file);
+      logMessage(projectId, 'Compose services started');
+    } else {
+      startContainer(`papuyu-${projectId}`);
+      logMessage(projectId, 'Container started');
+    }
+    db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('running', projectId);
+    res.json({ message: 'Project started' });
+  } catch (err: any) {
+    logMessage(projectId, `Start failed: ${err.message}`, 'error');
     res.status(500).json({ error: err.message });
   }
 }
