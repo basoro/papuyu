@@ -1,11 +1,29 @@
-import { execSync, spawn } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { config } from '../config/env';
 
-function execStream(command: string, options: any, onLog?: (msg: string) => void): Promise<string> {
+function canonicalId(raw: string): string {
+  // lower-case, allow letters/digits/dash, collapse others to dash, trim length
+  return raw.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50);
+}
+
+function validateSubdomain(s: string): void {
+  const ok = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(s);
+  if (!ok) throw new Error('Invalid subdomain');
+}
+
+function runDocker(args: string[], opts?: { timeout?: number; stdio?: 'pipe' | 'inherit'; cwd?: string }): string {
+  return execFileSync('docker', args, {
+    timeout: opts?.timeout ?? 30_000,
+    stdio: opts?.stdio ?? 'pipe',
+    cwd: opts?.cwd
+  }).toString();
+}
+
+function execStream(command: string, args: string[], options: any, onLog?: (msg: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(command, { ...options, shell: true });
+    const proc = spawn(command, args, { ...options, shell: false });
     
     let output = '';
 
@@ -35,37 +53,38 @@ function execStream(command: string, options: any, onLog?: (msg: string) => void
 }
 
 export async function buildImage(projectId: string, buildDir: string, dockerfilePath: string, onLog?: (msg: string) => void): Promise<void> {
-  const imageName = `papuyu-${projectId}:latest`;
+  const safeProjectId = canonicalId(projectId);
+  const imageName = `papuyu-${safeProjectId}:latest`;
   // Ensure the Dockerfile path is absolute relative to the build directory
   const absoluteDockerfilePath = path.join(buildDir, dockerfilePath);
   
   // Read .env file if exists to construct build-args
   const envPath = path.join(buildDir, '.env');
-  let buildArgs = '';
+  const buildArgsArray: string[] = [];
   
   if (fs.existsSync(envPath)) {
     try {
       const envContent = fs.readFileSync(envPath, 'utf-8');
       const lines = envContent.split('\n');
       
-      const args = lines
+      const parsedArgs = lines
         .filter((line: string) => line.trim() !== '' && !line.startsWith('#'))
         .map((line: string) => {
           const [key, ...rest] = line.split('=');
           if (key && rest.length > 0) {
             const value = rest.join('='); // Rejoin value in case it contained =
-            // Escape double quotes in value if present
-            const safeValue = value.replace(/"/g, '\\"');
-            return `--build-arg ${key.trim()}="${safeValue.trim()}"`;
+            return { key: key.trim(), value: value.trim() };
           }
           return null;
         })
-        .filter((arg: any) => arg !== null);
+        .filter((arg: any): arg is {key: string, value: string} => arg !== null);
         
-      if (args.length > 0) {
-        buildArgs = args.join(' ');
-        if (onLog) onLog(`Detected ${args.length} environment variables, passing as build-args`);
-        else console.log(`Detected ${args.length} environment variables, passing as build-args`);
+      if (parsedArgs.length > 0) {
+        for (const arg of parsedArgs) {
+          buildArgsArray.push('--build-arg', `${arg.key}=${arg.value}`);
+        }
+        if (onLog) onLog(`Detected ${parsedArgs.length} environment variables, passing as build-args`);
+        else console.log(`Detected ${parsedArgs.length} environment variables, passing as build-args`);
       }
     } catch (e) {
       if (onLog) onLog(`Failed to parse .env for build-args: ${e}`);
@@ -74,40 +93,44 @@ export async function buildImage(projectId: string, buildDir: string, dockerfile
   }
 
   await execStream(
-    `docker build -t ${imageName} -f ${absoluteDockerfilePath} ${buildArgs} ${buildDir}`, 
+    'docker',
+    ['build', '-t', imageName, '-f', absoluteDockerfilePath, ...buildArgsArray, buildDir],
     { cwd: buildDir }, 
     onLog
   );
 }
 
 export async function runContainer(projectId: string, port: number, subdomain?: string, onLog?: (msg: string) => void): Promise<string> {
-  const imageName = `papuyu-${projectId}:latest`;
-  const containerName = `papuyu-${projectId}`;
+  const safeProjectId = canonicalId(projectId);
+  const imageName = `papuyu-${safeProjectId}:latest`;
+  const containerName = `papuyu-${safeProjectId}`;
 
   // Stop & remove existing container if any
   try { 
-    await execStream(`docker rm -f ${containerName}`, {}, onLog); 
+    await execStream('docker', ['rm', '-f', containerName], {}, onLog); 
   } catch {}
 
   const domain = config.domain;
-  // Sanitize projectId for DNS (replace _ with -)
-  const safeProjectId = projectId.replace(/_/g, '-');
+  if (subdomain) {
+    validateSubdomain(subdomain);
+  }
   const host = subdomain ? `${subdomain}.${domain}` : `${safeProjectId}.${domain}`;
 
-  const labels = [
-    `--label "traefik.enable=true"`,
-    `--label "traefik.http.routers.papuyu-${projectId}.rule=Host(\\\`${host}\\\`)"`,
-    `--label "traefik.http.routers.papuyu-${projectId}.service=papuyu-${projectId}"`,
-    `--label "traefik.http.routers.papuyu-${projectId}.entrypoints=websecure"`,
-    `--label "traefik.http.routers.papuyu-${projectId}.tls=true"`,
-    `--label "traefik.http.routers.papuyu-${projectId}.tls.certresolver=myresolver"`,
-    `--label "traefik.http.services.papuyu-${projectId}.loadbalancer.server.port=${port}"`,
-    `--label "traefik.docker.network=papuyu-network"`
+  const labelArgs = [
+    '--label', 'traefik.enable=true',
+    '--label', `traefik.http.routers.papuyu-${safeProjectId}.rule=Host(\`${host}\`)`,
+    '--label', `traefik.http.routers.papuyu-${safeProjectId}.service=papuyu-${safeProjectId}`,
+    '--label', `traefik.http.routers.papuyu-${safeProjectId}.entrypoints=websecure`,
+    '--label', `traefik.http.routers.papuyu-${safeProjectId}.tls=true`,
+    '--label', `traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=myresolver`,
+    '--label', `traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}`,
+    '--label', 'traefik.docker.network=papuyu-network'
   ];
 
   // Connect to papuyu-network and do NOT map host port
   const output = await execStream(
-    `docker run -d --name ${containerName} --network papuyu-network ${labels.join(' ')} ${imageName}`,
+    'docker',
+    ['run', '-d', '--name', containerName, '--network', 'papuyu-network', ...labelArgs, imageName],
     {},
     onLog
   );
@@ -117,7 +140,7 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
 
 export function stopContainer(containerName: string): void {
   try {
-    execSync(`docker stop ${containerName}`, { timeout: 30_000, stdio: 'pipe' });
+    runDocker(['stop', containerName], { timeout: 30_000 });
   } catch (e) {
     console.warn(`Failed to stop container ${containerName}`, e);
   }
@@ -125,7 +148,7 @@ export function stopContainer(containerName: string): void {
 
 export function startContainer(containerName: string): void {
   try {
-    execSync(`docker start ${containerName}`, { timeout: 30_000, stdio: 'pipe' });
+    runDocker(['start', containerName], { timeout: 30_000 });
   } catch (e) {
     console.warn(`Failed to start container ${containerName}`, e);
     throw e;
@@ -133,22 +156,20 @@ export function startContainer(containerName: string): void {
 }
 
 export function restartContainer(containerName: string): void {
-  execSync(`docker restart ${containerName}`, { timeout: 30_000 });
+  runDocker(['restart', containerName], { timeout: 30_000 });
 }
 
 export function getContainerLogs(containerName: string, tail = 100): string {
-  return execSync(
-    `docker logs --tail ${tail} ${containerName}`,
-    { timeout: 10_000 }
-  ).toString();
+  return runDocker(['logs', '--tail', String(tail), containerName], { timeout: 10_000 });
 }
 
 export function removeContainer(containerName: string): void {
-  try { execSync(`docker rm -f ${containerName}`, { stdio: 'pipe' }); } catch {}
+  try { runDocker(['rm', '-f', containerName]); } catch {}
 }
 
 export function removeImage(projectId: string): void {
-  try { execSync(`docker rmi papuyu-${projectId}:latest`, { stdio: 'pipe' }); } catch {}
+  const safeProjectId = canonicalId(projectId);
+  try { runDocker(['rmi', `papuyu-${safeProjectId}:latest`]); } catch {}
 }
 
 // --- Docker Compose ---
@@ -173,9 +194,13 @@ function resolveComposeFile(buildDir: string, composeFile: string): string {
 function getComposeService(buildDir: string, composeFile: string, envPath: string): string {
   try {
       const filePath = resolveComposeFile(buildDir, composeFile);
-      const envFlag = fs.existsSync(envPath) ? `--env-file ${envPath}` : '';
-      // We use the project name 'papuyu-temp' just for config parsing to avoid warnings
-      const output = execSync(`docker compose -p papuyu-temp -f ${filePath} ${envFlag} config --services`, { timeout: 5000, stdio: 'pipe' }).toString().trim();
+      const args = ['compose', '-p', 'papuyu-temp', '-f', filePath];
+      if (fs.existsSync(envPath)) {
+        args.push('--env-file', envPath);
+      }
+      args.push('config', '--services');
+      
+      const output = runDocker(args, { timeout: 5000 }).trim();
       const services = output.split('\n').filter((s: string) => s.trim() !== '');
 
       // Heuristic: Prefer services that look like web servers
@@ -306,17 +331,19 @@ export function replacePortInDockerfile(buildDir: string, dockerfilePath: string
 }
 
 export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, onLog?: (msg: string) => void): Promise<void> {
-  const projectName = `papuyu-${projectId}`.toLowerCase();
+  const safeProjectId = canonicalId(projectId);
+  const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   const filePath = resolveComposeFile(buildDir, composeFile);
   const envPath = path.join(buildDir, '.env');
   
-  const envFlag = fs.existsSync(envPath) ? `--env-file ${envPath}` : '';
+  const args = ['compose', '-p', projectName, '-f', filePath];
 
-  let overrideFlag = '';
+  let overridePath = '';
   if (port) {
       const serviceName = getComposeService(buildDir, composeFile, envPath);
-      // Sanitize projectId for DNS (replace _ with -)
-      const safeProjectId = projectId.replace(/_/g, '-');
+      if (subdomain) {
+        validateSubdomain(subdomain);
+      }
       const host = subdomain ? `${subdomain}.${config.domain}` : `${safeProjectId}.${config.domain}`;
       const overrideContent = `
 version: '3.8'
@@ -326,61 +353,69 @@ services:
       - papuyu-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.papuyu-${projectId}.rule=Host(\`${host}\`)"
-      - "traefik.http.routers.papuyu-${projectId}.service=papuyu-${projectId}"
-      - "traefik.http.routers.papuyu-${projectId}.entrypoints=websecure"
-      - "traefik.http.routers.papuyu-${projectId}.tls=true"
-      - "traefik.http.routers.papuyu-${projectId}.tls.certresolver=myresolver"
-      - "traefik.http.services.papuyu-${projectId}.loadbalancer.server.port=${port}"
+      - "traefik.http.routers.papuyu-${safeProjectId}.rule=Host(\`${host}\`)"
+      - "traefik.http.routers.papuyu-${safeProjectId}.service=papuyu-${safeProjectId}"
+      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=websecure"
+      - "traefik.http.routers.papuyu-${safeProjectId}.tls=true"
+      - "traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=myresolver"
+      - "traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}"
       - "traefik.docker.network=papuyu-network"
 
 networks:
   papuyu-network:
     external: true
 `;
-      const overridePath = path.join(buildDir, 'docker-compose.override.yml');
+      overridePath = path.join(buildDir, 'docker-compose.override.yml');
       fs.writeFileSync(overridePath, overrideContent);
-      overrideFlag = `-f ${overridePath}`;
+      args.push('-f', overridePath);
       if (onLog) onLog(`Generated override file for service ${serviceName} with Traefik labels`);
       else console.log(`Generated override file for service ${serviceName} with Traefik labels`);
   }
 
+  if (fs.existsSync(envPath)) {
+    args.push('--env-file', envPath);
+  }
+
+  args.push('up', '-d', '--build');
+
   await execStream(
-    `docker compose -p ${projectName} -f ${filePath} ${overrideFlag} ${envFlag} up -d --build`,
+    'docker',
+    args,
     { timeout: 600_000, cwd: buildDir },
     onLog
   );
 }
 
 export function composeDown(projectId: string, buildDir: string, composeFile: string): void {
-  const projectName = `papuyu-${projectId}`.toLowerCase();
+  const safeProjectId = canonicalId(projectId);
+  const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   const filePath = resolveComposeFile(buildDir, composeFile);
   
   // Down first to remove network and containers
   try {
-    execSync(
-        `docker compose -p ${projectName} -f ${filePath} down --rmi all --volumes --remove-orphans`,
-        { timeout: 60_000, stdio: 'pipe' }
-    );
+    runDocker(['compose', '-p', projectName, '-f', filePath, 'down', '--rmi', 'all', '--volumes', '--remove-orphans'], { timeout: 60_000 });
   } catch (e) {
     console.warn(`Compose down failed, trying to force cleanup`, e);
     // Force cleanup if down fails (e.g. file deleted)
     try {
-        const containers = execSync(`docker ps -a -q --filter "label=com.docker.compose.project=${projectName}"`).toString().trim().split('\n');
+        const output = runDocker(['ps', '-a', '-q', '--filter', `label=com.docker.compose.project=${projectName}`]);
+        const containers = output.trim().split('\n');
         if (containers.length > 0 && containers[0] !== '') {
-            execSync(`docker rm -f ${containers.join(' ')}`);
+            runDocker(['rm', '-f', ...containers]);
         }
     } catch {}
   }
 }
 
 export function composeStop(projectId: string, buildDir: string, composeFile: string): void {
-  const projectName = `papuyu-${projectId}`.toLowerCase();
+  const safeProjectId = canonicalId(projectId);
+  const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   
   try {
-    const containers = execSync(`docker ps -a -q --filter "label=com.docker.compose.project=${projectName}"`).toString().trim().split('\n');
+    const output = runDocker(['ps', '-a', '-q', '--filter', `label=com.docker.compose.project=${projectName}`]);
+    const containers = output.trim().split('\n');
     if (containers.length > 0 && containers[0] !== '') {
-      execSync(`docker stop ${containers.join(' ')}`, { stdio: 'pipe' });
+      runDocker(['stop', ...containers]);
     }
   } catch (e) {
     console.warn(`Fallback stop failed for compose project ${projectName}`, e);
@@ -388,12 +423,14 @@ export function composeStop(projectId: string, buildDir: string, composeFile: st
 }
 
 export function composeStart(projectId: string, buildDir: string, composeFile: string): void {
-  const projectName = `papuyu-${projectId}`.toLowerCase();
+  const safeProjectId = canonicalId(projectId);
+  const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   
   try {
-    const containers = execSync(`docker ps -a -q --filter "label=com.docker.compose.project=${projectName}"`).toString().trim().split('\n');
+    const output = runDocker(['ps', '-a', '-q', '--filter', `label=com.docker.compose.project=${projectName}`]);
+    const containers = output.trim().split('\n');
     if (containers.length > 0 && containers[0] !== '') {
-      execSync(`docker start ${containers.join(' ')}`, { stdio: 'pipe' });
+      runDocker(['start', ...containers]);
     } else {
       throw new Error('No containers found for this project');
     }
@@ -404,21 +441,17 @@ export function composeStart(projectId: string, buildDir: string, composeFile: s
 }
 
 export function composeRestart(projectId: string, buildDir: string, composeFile: string): void {
-  const projectName = `papuyu-${projectId}`.toLowerCase();
+  const safeProjectId = canonicalId(projectId);
+  const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   const filePath = resolveComposeFile(buildDir, composeFile);
   
-  execSync(
-    `docker compose -p ${projectName} -f ${filePath} restart`,
-    { timeout: 60_000, stdio: 'pipe' }
-  );
+  runDocker(['compose', '-p', projectName, '-f', filePath, 'restart'], { timeout: 60_000 });
 }
 
 export function getComposeLogs(projectId: string, buildDir: string, composeFile: string, tail = 100): string {
-  const projectName = `papuyu-${projectId}`.toLowerCase();
+  const safeProjectId = canonicalId(projectId);
+  const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   const filePath = resolveComposeFile(buildDir, composeFile);
   
-  return execSync(
-    `docker compose -p ${projectName} -f ${filePath} logs --tail ${tail}`,
-    { timeout: 10_000 }
-  ).toString();
+  return runDocker(['compose', '-p', projectName, '-f', filePath, 'logs', '--tail', String(tail)], { timeout: 10_000 });
 }
