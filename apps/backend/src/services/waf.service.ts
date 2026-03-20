@@ -48,7 +48,6 @@ const processNginxErrorLog = (line: string) => {
 
     // Extract basic fields using Regex
     const clientIpMatch = line.match(/client:\s*([^,]+)/);
-    const forwardedForMatch = line.match(/"([^"]+)"\s*"([^"]+)"$/); // Try to get X-Forwarded-For if it's logged at the end
     const uriMatch = line.match(/\[uri\s+"([^"]+)"\]/);
     const msgMatch = line.match(/\[msg\s+"([^"]+)"\]/);
     const hostMatch = line.match(/host:\s*"([^"]+)"/);
@@ -56,37 +55,23 @@ const processNginxErrorLog = (line: string) => {
 
     let ipAddress = clientIpMatch ? clientIpMatch[1] : 'Unknown';
     
-    // Check if the log contains a forwarded IP (if Nginx logs it)
-    if (line.includes('X-Forwarded-For:')) {
-        const xffMatch = line.match(/X-Forwarded-For:\s*([^,\]"'\s]+)/i);
-        if (xffMatch && xffMatch[1]) {
-            ipAddress = xffMatch[1].trim();
-        }
+    // NGINX Kadang menambahkan "forwarded_for" di akhir log error
+    const forwardedForMatch = line.match(/forwarded_for:\s*"([^"]+)"/);
+    if (forwardedForMatch && forwardedForMatch[1]) {
+      // Ambil IP pertama jika ada beberapa (contoh: "1.2.3.4, 5.6.7.8")
+      ipAddress = forwardedForMatch[1].split(',')[0].trim();
+    } else {
+      // Jika tidak ada forwarded_for eksplisit, coba cari string IP publik apa pun dalam log
+      // Regex ini mencari IP valid, menghindari IP lokal/private (10.x, 172.16-31.x, 192.168.x, 127.x)
+      const publicIpRegex = /\b(?:(?!10\.|127\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[0-1])\.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g;
+      const allPublicIps = line.match(publicIpRegex);
+      
+      if (allPublicIps && allPublicIps.length > 0) {
+        // Jika ada lebih dari satu, biasanya IP terakhir atau IP setelah string user agent adalah X-Forwarded-For
+        ipAddress = allPublicIps[allPublicIps.length - 1];
+      }
     }
     
-    // Check if X-Forwarded-For is passed as a normal string at the end of the log
-    // Example: ... "Mozilla/5.0..." "103.144.xxx.xxx"
-    if (ipAddress.startsWith('172.') || ipAddress === 'Unknown') {
-        const lastQuotes = line.match(/"([^"]+)"$/);
-        if (lastQuotes && lastQuotes[1] && !lastQuotes[1].includes('/') && lastQuotes[1].includes('.')) {
-            // It might be an IP address
-            const potentialIp = lastQuotes[1].split(',')[0].trim();
-            if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(potentialIp)) {
-                ipAddress = potentialIp;
-            }
-        }
-    }
-    
-    // Fallback: If IP starts with 172. (Docker internal), try to find another IP in the log
-    if (ipAddress.startsWith('172.')) {
-        const allIps = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [];
-        for (const ip of allIps) {
-            if (!ip.startsWith('172.') && !ip.startsWith('127.') && !ip.startsWith('10.') && !ip.startsWith('192.168.')) {
-                ipAddress = ip;
-                break;
-            }
-        }
-    }
     let domain = hostMatch ? hostMatch[1] : 'Unknown';
     if (domain.includes(':')) domain = domain.split(':')[0]; // Remove port
     
