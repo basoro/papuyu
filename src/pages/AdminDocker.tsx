@@ -263,8 +263,6 @@ export default function AdminDocker() {
                       </div>
 
                       <div className="space-y-3 pt-2">
-                        {/* Fake CPU/RAM since basic systeminformation doesn't return real-time container stats without extra flags/calls. 
-                            If available in container data, use it, else mock 0%. */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs">
                             <span>CPU</span>
@@ -275,7 +273,7 @@ export default function AdminDocker() {
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs">
                             <span>RAM</span>
-                            <span>{formatBytes(container.memUsage || 0)}</span>
+                            <span>{container.memUsageStr || '0 B / 0 B'}</span>
                           </div>
                           <Progress value={container.memPercent || 0} className="h-1.5" />
                         </div>

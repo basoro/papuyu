@@ -75,7 +75,44 @@ export async function getDockerOverview(req: AuthRequest, res: Response) {
 export async function getDockerContainers(req: AuthRequest, res: Response) {
   try {
     const containers = await si.dockerContainers(true);
-    res.json(containers);
+    
+    // Fetch stats using docker CLI for accuracy, as si.dockerContainerStats is sometimes unreliable
+    let statsMap: Record<string, any> = {};
+    try {
+      const statsOut = execFileSync('docker', [
+        'stats', '--no-stream', '--format', '{"id":"{{.ID}}","cpu":"{{.CPUPerc}}","mem":"{{.MemUsage}}","memPerc":"{{.MemPerc}}"}'
+      ]).toString();
+      
+      const statLines = statsOut.split('\n').filter(Boolean);
+      for (const line of statLines) {
+        try {
+          const parsed = JSON.parse(line);
+          // cpu: "0.05%" -> 0.05
+          const cpu = parseFloat(parsed.cpu.replace('%', '')) || 0;
+          // memPerc: "1.2%" -> 1.2
+          const memPercent = parseFloat(parsed.memPerc.replace('%', '')) || 0;
+          // mem: "12.5MiB / 2GiB" -> we just keep the raw string to parse in frontend, or parse here
+          statsMap[parsed.id] = { cpu, memPercent, memUsageStr: parsed.mem };
+        } catch (e) {}
+      }
+    } catch (e) {
+      console.warn('Failed to fetch docker stats via CLI:', e);
+    }
+
+    // Merge stats into containers
+    const enrichedContainers = containers.map((c: any) => {
+      // systeminformation returns full 64-char ID, docker stats returns 12-char ID
+      const shortId = c.id.substring(0, 12);
+      const stats = statsMap[shortId] || { cpu: 0, memPercent: 0, memUsageStr: '0 B / 0 B' };
+      return {
+        ...c,
+        cpuPercent: stats.cpu,
+        memPercent: stats.memPercent,
+        memUsageStr: stats.memUsageStr
+      };
+    });
+
+    res.json(enrichedContainers);
   } catch (error: any) {
     console.error('Docker containers error:', error);
     res.status(500).json({ error: 'Failed to fetch Docker containers' });
