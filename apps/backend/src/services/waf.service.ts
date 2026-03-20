@@ -55,21 +55,24 @@ const processNginxErrorLog = (line: string) => {
 
     let ipAddress = clientIpMatch ? clientIpMatch[1] : 'Unknown';
     
-    // Check for X-Forwarded-For header if present in the request string
-    // Sometimes it's inside the request string or at the end of the log
-    const xffMatch = line.match(/X-Forwarded-For(?:[:=]\s*|,\s*)"?([^"\]\s]+)"?/i);
+    // Try to extract from Traefik headers passed by the plugin
+    const forwardedForMatch = line.match(/X-Forwarded-For.*?([\d\.]+)/i);
+    const realIpMatch = line.match(/X-Real-Ip.*?([\d\.]+)/i);
     
-    if (xffMatch && xffMatch[1]) {
-      ipAddress = xffMatch[1].split(',')[0].trim();
+    if (forwardedForMatch && forwardedForMatch[1]) {
+      ipAddress = forwardedForMatch[1];
+    } else if (realIpMatch && realIpMatch[1]) {
+      ipAddress = realIpMatch[1];
     } else {
-      // Jika tidak ada forwarded_for eksplisit, coba cari string IP publik apa pun dalam log
-      // Regex ini mencari IP valid, menghindari IP lokal/private (10.x, 172.16-31.x, 192.168.x, 127.x)
-      const publicIpRegex = /\b(?:(?!10\.|127\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[0-1])\.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g;
-      const allPublicIps = line.match(publicIpRegex);
-      
-      if (allPublicIps && allPublicIps.length > 0) {
-        // Jika ada lebih dari satu, biasanya IP terakhir atau IP setelah string user agent adalah X-Forwarded-For
-        ipAddress = allPublicIps[allPublicIps.length - 1];
+      // Fallback: If IP starts with 172. (Docker internal), try to find another IP in the log
+      if (ipAddress.startsWith('172.')) {
+        const allIps = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [];
+        for (const ip of allIps) {
+          if (!ip.startsWith('172.') && !ip.startsWith('127.') && !ip.startsWith('10.') && !ip.startsWith('192.168.')) {
+            ipAddress = ip;
+            break;
+          }
+        }
       }
     }
     
