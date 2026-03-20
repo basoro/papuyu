@@ -1,112 +1,89 @@
-import { Tail } from 'tail';
-import fs from 'fs';
-import path from 'path';
+import { spawn } from 'child_process';
 import db from '../db/database';
 import { nanoid } from 'nanoid';
 
-const LOG_FILE = '/var/log/modsec/audit.log';
-
-// For local testing outside of Docker, fallback to the relative path
-const getLogFilePath = () => {
-  if (fs.existsSync(LOG_FILE)) {
-    return LOG_FILE;
-  }
-  const localPath = path.resolve(process.cwd(), '../../logs/modsec/audit.log');
-  if (fs.existsSync(localPath)) {
-    return localPath;
-  }
-  const projectRootPath = path.resolve(process.cwd(), 'logs/modsec/audit.log');
-  if (fs.existsSync(projectRootPath)) {
-    return projectRootPath;
-  }
-  return null;
-};
-
 export const startWafLogWatcher = () => {
-  const logPath = getLogFilePath();
-  
-  if (!logPath) {
-    console.warn('[WAF] Audit log file not found. WAF logging is disabled.');
-    return;
-  }
-
-  console.log(`[WAF] Watching ModSecurity audit log at ${logPath}`);
+  console.log(`[WAF] Starting Docker logs watcher for ModSecurity container...`);
 
   try {
-    const tail = new Tail(logPath, {
-      fromBeginning: false,
-      follow: true,
-      useWatchFile: true
+    // We use Docker CLI directly to stream logs from the modsecurity container
+    // This bypasses the need for shared file volumes completely
+    const dockerLogs = spawn('docker', ['logs', '-f', '--tail', '0', 'papuyu-modsecurity-1']);
+
+    dockerLogs.stdout.on('data', (data) => {
+      const lines = data.toString().split('\n');
+      lines.forEach((line: string) => processNginxErrorLog(line));
     });
 
-    tail.on('line', (line: string) => {
-      try {
-        console.log('[WAF] New log line detected, length:', line.length);
-        if (!line || !line.trim().startsWith('{')) {
-          console.log('[WAF] Ignoring non-JSON log line');
-          return; // Ignore non-JSON lines
-        }
-        
-        const data = JSON.parse(line);
-        console.log('[WAF] Successfully parsed JSON log for transaction:', data?.transaction?.id);
-        processWafLog(data);
-      } catch (err) {
-        console.error('[WAF] Error parsing log line:', err);
-      }
+    dockerLogs.stderr.on('data', (data) => {
+      // Nginx typically writes errors to stderr
+      const lines = data.toString().split('\n');
+      lines.forEach((line: string) => processNginxErrorLog(line));
     });
 
-    tail.on('error', (error: any) => {
-      console.error('[WAF] Tail error:', error);
+    dockerLogs.on('close', (code) => {
+      console.log(`[WAF] Docker log process exited with code ${code}. Restarting in 5s...`);
+      setTimeout(startWafLogWatcher, 5000);
     });
+
+    dockerLogs.on('error', (err) => {
+      console.error('[WAF] Failed to start docker logs process:', err);
+      setTimeout(startWafLogWatcher, 5000);
+    });
+
   } catch (error) {
     console.error('[WAF] Failed to start log watcher:', error);
   }
 };
 
-const processWafLog = (data: any) => {
-  console.log('[WAF] Processing WAF log...');
-  const transaction = data?.transaction;
-  if (!transaction) {
-    console.log('[WAF] No transaction object found in log');
-    return;
-  }
-
-  const messages = transaction.messages || [];
-  if (messages.length === 0) {
-    console.log('[WAF] No messages found in transaction, not an attack');
-    return; // Not an attack if there are no messages
-  }
-
-  const ipAddress = transaction.client_ip || 'Unknown';
-  const domain = transaction.request?.headers?.Host || 'Unknown';
-  const url = transaction.request?.uri || '/';
+const processNginxErrorLog = (line: string) => {
+  if (!line || line.trim() === '') return;
   
-  // Use the first message to classify the attack type
-  const firstMessage = messages[0];
-  const attackType = extractAttackType(firstMessage.message || 'Unknown threat');
-  
-  // Assuming "action" from details or default to Blocked if it's an alert
-  const action = firstMessage.details?.action || 'Blocked';
-  
-  console.log(`[WAF] Extracted Data: IP=${ipAddress}, Domain=${domain}, URL=${url}, Attack=${attackType}, Action=${action}`);
+  // We only care about ModSecurity Access denied logs
+  if (!line.includes('ModSecurity: Access denied')) return;
 
-  // Parse ModSec time "20/Mar/2026:11:01:42 +0000" to SQLite datetime format
-  let timestamp = new Date().toISOString(); // fallback
   try {
-    if (transaction.time) {
-      // ModSec time format: "05/Oct/2023:14:32:00 +0000"
-      const timeStr = transaction.time.replace(':', ' ');
-      const dateObj = new Date(timeStr);
-      if (!isNaN(dateObj.getTime())) {
-        timestamp = dateObj.toISOString();
-      }
+    // Example log:
+    // 2026/03/20 07:58:50 [error] 527#527: *1 [client 172.20.0.3] ModSecurity: Access denied with code 403 (phase 2). Matched "Operator `Ge' with parameter `5' against variable `TX:ANOMALY_SCORE' (Value: `20' ) [file "/etc/modsecurity.d/owasp-crs/rules/REQUEST-949-BLOCKING-EVALUATION.conf"] [line "81"] [id "949110"] [rev ""] [msg "Inbound Anomaly Score Exceeded (Total Score: 20)"] [data ""] [severity "2"] [ver "OWASP_CRS/3.3.8"] [maturity "0"] [accuracy "0"] [tag "modsecurity"] [tag "application-multi"] [tag "language-multi"] [tag "platform-multi"] [tag "attack-generic"] [hostname "modsecurity"] [uri "/"] [unique_id "177399353088.177075"] [ref ""], client: 172.20.0.3, server: localhost, request: "GET /?id=1%20UNION%20SELECT%20password%20FROM%20users&attempt=20 HTTP/1.1", host: "modsecurity:8080"
+
+    // Extract basic fields using Regex
+    const clientIpMatch = line.match(/client:\s*([^,]+)/);
+    const uriMatch = line.match(/\[uri\s+"([^"]+)"\]/);
+    const msgMatch = line.match(/\[msg\s+"([^"]+)"\]/);
+    const hostMatch = line.match(/host:\s*"([^"]+)"/);
+    const requestMatch = line.match(/request:\s*"([^"]+)"/);
+
+    const ipAddress = clientIpMatch ? clientIpMatch[1] : 'Unknown';
+    let domain = hostMatch ? hostMatch[1] : 'Unknown';
+    if (domain.includes(':')) domain = domain.split(':')[0]; // Remove port
+    
+    // Fallback domain if host is not found but we know it's trapped by our WAF
+    if (domain === 'modsecurity' || domain === 'Unknown') {
+       domain = 'rshd.my.id (Protected)';
     }
-  } catch (e) {
-    console.error('[WAF] Error parsing time:', e);
-  }
 
-  // Insert into SQLite
-  try {
+    let url = uriMatch ? uriMatch[1] : '/';
+    if (requestMatch && url === '/') {
+      // Try to get full URL from request string (e.g., "GET /?id=1... HTTP/1.1")
+      const reqParts = requestMatch[1].split(' ');
+      if (reqParts.length > 1) url = reqParts[1];
+    }
+
+    const rawMessage = msgMatch ? msgMatch[1] : 'Malicious request';
+    const attackType = extractAttackType(rawMessage, url);
+    const action = 'Blocked';
+
+    // Extract time: "2026/03/20 07:58:50" -> ISO
+    let timestamp = new Date().toISOString();
+    const timeMatch = line.match(/^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})/);
+    if (timeMatch) {
+      const parsed = new Date(timeMatch[1].replace(/\//g, '-'));
+      if (!isNaN(parsed.getTime())) timestamp = parsed.toISOString();
+    }
+
+    console.log(`[WAF] Captured Event: IP=${ipAddress}, Attack=${attackType}, URL=${url}`);
+
+    // Insert into SQLite
     const stmt = db.prepare(`
       INSERT INTO waf_events (id, timestamp, ip_address, domain, attack_type, url, action)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -114,24 +91,24 @@ const processWafLog = (data: any) => {
     
     const id = nanoid();
     stmt.run(id, timestamp, ipAddress, domain, attackType, url, action);
-    console.log(`[WAF] Successfully saved event to database with ID: ${id}`);
+
   } catch (err) {
-    console.error('[WAF] Failed to insert WAF event into database:', err);
+    console.error('[WAF] Error processing docker log line:', err);
   }
 };
 
-const extractAttackType = (message: string): string => {
-  // Map OWASP CRS rule messages to simpler categories
+const extractAttackType = (message: string, url: string): string => {
   const msgLower = message.toLowerCase();
+  const urlLower = url.toLowerCase();
   
-  if (msgLower.includes('sql injection') || msgLower.includes('sqli')) {
+  if (msgLower.includes('sql injection') || msgLower.includes('sqli') || urlLower.includes('union') || urlLower.includes('select')) {
     return 'SQL Injection';
   }
-  if (msgLower.includes('xss') || msgLower.includes('cross-site scripting')) {
+  if (msgLower.includes('xss') || msgLower.includes('cross-site scripting') || urlLower.includes('<script>')) {
     return 'Cross-Site Scripting (XSS)';
   }
-  if (msgLower.includes('local file inclusion') || msgLower.includes('lfi')) {
-    return 'Local File Inclusion';
+  if (msgLower.includes('local file inclusion') || msgLower.includes('lfi') || urlLower.includes('../') || urlLower.includes('etc/passwd')) {
+    return 'Directory Traversal / LFI';
   }
   if (msgLower.includes('remote file inclusion') || msgLower.includes('rfi')) {
     return 'Remote File Inclusion';
@@ -142,11 +119,8 @@ const extractAttackType = (message: string): string => {
   if (msgLower.includes('shell') || msgLower.includes('command injection')) {
     return 'Command Injection';
   }
-  if (msgLower.includes('scanner') || msgLower.includes('crawler')) {
-    return 'Scanner/Crawler';
-  }
-  if (msgLower.includes('user-agent') || msgLower.includes('anomaly')) {
-    return 'Protocol Anomaly';
+  if (msgLower.includes('scanner') || msgLower.includes('crawler') || msgLower.includes('anomaly')) {
+    return 'Scanner / Bad Bot';
   }
   
   return message.length > 50 ? message.substring(0, 50) + '...' : message;
