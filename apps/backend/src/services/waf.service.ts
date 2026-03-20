@@ -40,9 +40,11 @@ const processNginxErrorLog = (line: string) => {
   if (!line || line.trim() === '') return;
   
   // Periksa apakah log adalah JSON (Audit Log dari ModSecurity)
-  if (line.startsWith('{"transaction":')) {
+  if (line.includes('{"transaction":')) {
     try {
-      const auditLog = JSON.parse(line);
+      // Ekstrak hanya bagian JSON (jika ada string prefix sebelumnya)
+      const jsonStr = line.substring(line.indexOf('{"transaction":'));
+      const auditLog = JSON.parse(jsonStr);
       const transaction = auditLog.transaction;
       
       // Ambil IP dari X-Forwarded-For atau X-Real-Ip jika tersedia, fallback ke client_ip
@@ -88,6 +90,17 @@ const processNginxErrorLog = (line: string) => {
         const parsed = new Date(transaction.time_stamp);
         if (!isNaN(parsed.getTime())) timestamp = parsed.toISOString();
       }
+      
+      // Hanya proses log JSON yang BENAR-BENAR diblokir (messages array tidak kosong dan severity >= 2 atau ada pesan attack)
+      // Log /healthz biasanya messages-nya kosong []
+      let isBlocked = false;
+      if (transaction.messages && transaction.messages.length > 0) {
+        // Cek jika ini benar-benar diblokir, misalnya ada tag "attack" atau severity yang cukup
+        isBlocked = true;
+      }
+      
+      // Jika tidak diblokir (misal request normal /healthz), kita skip agar tidak menuh-menuhin database
+      if (!isBlocked) return;
       
       console.log(`[WAF] Captured Event (JSON): IP=${ipAddress}, Attack=${attackType}, URL=${url}`);
       
