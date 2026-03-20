@@ -71,11 +71,11 @@ services:
       # NGINX Configuration via environment variables supported by the CRS image
       - NGINX_KEEPALIVE_TIMEOUT=65
       - PORT=8080
-      # Enable JSON logging
+      # Enable JSON logging ke stdout/stderr Nginx
       - MODSEC_AUDIT_LOG_FORMAT=JSON
       - MODSEC_AUDIT_LOG_TYPE=Serial
-      - MODSEC_AUDIT_LOG=/var/log/modsec/audit.log
-      - MODSEC_AUDIT_LOG_PARTS=ABIJDEFHZ
+      - MODSEC_AUDIT_LOG=/dev/stderr
+      - MODSEC_AUDIT_LOG_PARTS=ABHIJDEFZ
       - MODSEC_AUDIT_ENGINE=On
     networks:
       - papuyu-network
