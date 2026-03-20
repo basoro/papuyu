@@ -59,7 +59,7 @@ services:
       - papuyu-network
 
   modsecurity:
-    image: owasp/modsecurity-crs:nginx
+    image: owasp/modsecurity-crs:nginx-alpine
     environment:
       - SEC_RULE_ENGINE=DetectionOnly
       - BACKEND=http://127.0.0.1:8081 # Point to our custom dummy backend that returns 200 OK
