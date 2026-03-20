@@ -11,9 +11,13 @@ const getLogFilePath = () => {
   if (fs.existsSync(LOG_FILE)) {
     return LOG_FILE;
   }
-  const localPath = path.resolve(__dirname, '../../../../logs/modsec/audit.log');
+  const localPath = path.resolve(process.cwd(), '../../logs/modsec/audit.log');
   if (fs.existsSync(localPath)) {
     return localPath;
+  }
+  const projectRootPath = path.resolve(process.cwd(), 'logs/modsec/audit.log');
+  if (fs.existsSync(projectRootPath)) {
+    return projectRootPath;
   }
   return null;
 };

@@ -30,7 +30,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock  # Docker-in-Docker access
       - ./data:/app/data                            # SQLite persistence (Host Volume)
       - /tmp/papuyu-builds:/tmp/papuyu-builds          # Build directory
-      - ./logs/modsec:/var/log/modsec:ro
+      - ./logs/modsec:/var/log/modsec
     environment:
       - PORT=4000
       - JWT_SECRET=${JWT_SECRET:-dev-secret-key}
