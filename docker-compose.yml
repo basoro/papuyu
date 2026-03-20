@@ -61,7 +61,7 @@ services:
     image: owasp/modsecurity-crs:nginx
     environment:
       - SEC_RULE_ENGINE=DetectionOnly
-      - BACKEND=http://127.0.0.1:8080 # Dummy backend so Nginx doesn't crash
+      - BACKEND=http://127.0.0.1:8081 # Point to our custom dummy backend that returns 200 OK
       - SERVER_NAME=localhost
       # NGINX Configuration via environment variables supported by the CRS image
       - NGINX_KEEPALIVE_TIMEOUT=65
