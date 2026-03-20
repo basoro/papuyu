@@ -41,15 +41,18 @@ export async function getDockerOverview(req: AuthRequest, res: Response) {
 
     let composeCount = 0;
     try {
-      // Try to estimate compose projects based on container labels
-      const composeProjects = new Set(
-        containers
-          .map((c: any) => c.labels?.['com.docker.compose.project'])
-          .filter(Boolean)
-      );
-      composeCount = composeProjects.size;
+      const composeOut = execFileSync('docker', ['compose', 'ls', '-q']).toString();
+      composeCount = composeOut.split('\n').filter(Boolean).length;
     } catch (e) {
-      // Ignore
+      // Fallback if docker compose ls fails
+      try {
+        const composeProjects = new Set(
+          containers
+            .map((c: any) => c.labels?.['com.docker.compose.project'] || (c.Labels && c.Labels['com.docker.compose.project']))
+            .filter(Boolean)
+        );
+        composeCount = composeProjects.size;
+      } catch (e2) {}
     }
 
     const imagesSize = images.reduce((acc: number, img: any) => acc + (img.size || 0), 0);
