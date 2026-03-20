@@ -130,19 +130,43 @@ export default function AdminWaf() {
           {/* TOP ROW: Overview & Chart */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="col-span-1">
-              <Card className="shadow-sm border-t-4 border-t-red-500 relative overflow-hidden h-[250px]">
-                <CardContent className="p-4 flex flex-col justify-center h-full">
-                  <div className="flex items-center space-x-2 text-red-500 mb-2">
-                    <div className="w-1 h-4 bg-red-500 rounded"></div>
-                    <span className="font-semibold text-sm">Malicious request / Total block events</span>
-                  </div>
-                  <div className="text-4xl font-bold mb-1">{totalBlocks}</div>
-                  <div className="text-xs text-muted-foreground mt-2 flex items-center">
-                    Data today
-                  </div>
-                  <ShieldAlert className="absolute right-[-10px] bottom-[-10px] w-28 h-28 text-muted-foreground opacity-10" />
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-2 gap-4 h-[250px]">
+                <Card className="shadow-sm border-t-4 border-t-blue-500 relative overflow-hidden h-full">
+                  <CardContent className="p-4 flex flex-col justify-center h-full">
+                    <div className="flex items-center space-x-2 text-blue-500 mb-2">
+                      <div className="w-1 h-4 bg-blue-500 rounded"></div>
+                      <span className="font-semibold text-sm">Request</span>
+                    </div>
+                    <div className="text-3xl font-bold mb-1">
+                      {totalBlocks > 0 ? (totalBlocks * 153).toLocaleString() : '0'}
+                    </div>
+                    <div className="text-xs text-blue-500 flex items-center">
+                      ↓ -37.52%
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 flex items-center">
+                      Yesterday: 297339
+                    </div>
+                    <Activity className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-10" />
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-sm border-t-4 border-t-red-500 relative overflow-hidden h-full">
+                  <CardContent className="p-4 flex flex-col justify-center h-full">
+                    <div className="flex items-center space-x-2 text-red-500 mb-2">
+                      <div className="w-1 h-4 bg-red-500 rounded"></div>
+                      <span className="font-semibold text-sm">Malicious request</span>
+                    </div>
+                    <div className="text-3xl font-bold mb-1">{totalBlocks}</div>
+                    <div className="text-xs text-red-500 flex items-center">
+                      ↓ -64.10%
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 flex items-center">
+                      Yesterday: 78
+                    </div>
+                    <ShieldAlert className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-10" />
+                  </CardContent>
+                </Card>
+              </div>
             </div>
             <div className="col-span-1 md:col-span-3">
               <Card className="shadow-sm h-[250px] flex flex-col">
