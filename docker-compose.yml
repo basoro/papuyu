@@ -82,6 +82,8 @@ services:
     volumes:
       # Mount as a specific conf.d file instead of overriding the template
       - ./modsec-nginx.conf:/etc/nginx/conf.d/zzz-custom.conf
+      # Mount real IP extraction configuration
+      - ./modsec-realip.conf:/etc/nginx/conf.d/00-realip.conf
       # Mount the log directory so the backend can read it
       - ./logs/modsec:/var/log/modsec
 
