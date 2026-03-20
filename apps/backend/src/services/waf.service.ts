@@ -57,10 +57,23 @@ const processNginxErrorLog = (line: string) => {
     let ipAddress = clientIpMatch ? clientIpMatch[1] : 'Unknown';
     
     // Check if the log contains a forwarded IP (if Nginx logs it)
-    if (line.includes('X-Forwarded-For')) {
-        const xffMatch = line.match(/X-Forwarded-For: ([^,\]]+)/i);
+    if (line.includes('X-Forwarded-For:')) {
+        const xffMatch = line.match(/X-Forwarded-For:\s*([^,\]"'\s]+)/i);
         if (xffMatch && xffMatch[1]) {
             ipAddress = xffMatch[1].trim();
+        }
+    }
+    
+    // Check if X-Forwarded-For is passed as a normal string at the end of the log
+    // Example: ... "Mozilla/5.0..." "103.144.xxx.xxx"
+    if (ipAddress.startsWith('172.') || ipAddress === 'Unknown') {
+        const lastQuotes = line.match(/"([^"]+)"$/);
+        if (lastQuotes && lastQuotes[1] && !lastQuotes[1].includes('/') && lastQuotes[1].includes('.')) {
+            // It might be an IP address
+            const potentialIp = lastQuotes[1].split(',')[0].trim();
+            if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(potentialIp)) {
+                ipAddress = potentialIp;
+            }
         }
     }
     
