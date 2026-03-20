@@ -58,7 +58,7 @@ services:
       - papuyu-network
 
   modsecurity:
-    image: owasp/modsecurity-crs:v3.3.4
+    image: owasp/modsecurity-crs:nginx
     environment:
       - SEC_RULE_ENGINE=DetectionOnly # Safe default for PaaS, logs but doesn't block
     networks:
