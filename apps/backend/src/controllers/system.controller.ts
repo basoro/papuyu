@@ -203,6 +203,15 @@ export async function getWafStats(req: AuthRequest, res: Response) {
     const totalBlocksToday = db.prepare(`
       SELECT COUNT(*) as count FROM waf_events WHERE timestamp >= ?
     `).get(todayStr) as { count: number };
+    
+    // Total blocks yesterday for comparison
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString();
+    const totalBlocksYesterday = db.prepare(`
+      SELECT COUNT(*) as count FROM waf_events WHERE timestamp >= ? AND timestamp < ?
+    `).get(yesterdayStr, todayStr) as { count: number };
+    
     console.log('[WAF-API] Total Blocks Today:', totalBlocksToday.count);
 
     // 6. Top Visited Pages (URLs)
@@ -234,6 +243,7 @@ export async function getWafStats(req: AuthRequest, res: Response) {
       topDomains,
       topUrls,
       totalBlocksToday: totalBlocksToday.count || 0,
+      totalBlocksYesterday: totalBlocksYesterday.count || 0,
       timeSeriesData
     });
   } catch (error: any) {

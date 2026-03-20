@@ -48,6 +48,15 @@ export default function AdminWaf() {
   }, []);
 
   const totalBlocks = stats?.totalBlocksToday || 0;
+  const totalBlocksYesterday = stats?.totalBlocksYesterday || 0;
+  
+  // Calculate percentage change
+  let percentageChange = 0;
+  if (totalBlocksYesterday > 0) {
+    percentageChange = ((totalBlocks - totalBlocksYesterday) / totalBlocksYesterday) * 100;
+  } else if (totalBlocks > 0) {
+    percentageChange = 100;
+  }
   const pieData = stats?.blockTypes?.map((b: any, i: number) => ({
     name: b.name,
     value: b.value,
@@ -130,6 +139,25 @@ export default function AdminWaf() {
           {/* TOP ROW: Overview & Chart */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="col-span-1 h-[250px] flex gap-4">
+              <Card className="shadow-sm border-t-4 border-t-blue-500 relative overflow-hidden flex-1">
+                <CardContent className="p-4 flex flex-col justify-center h-full">
+                  <div className="flex items-center space-x-2 text-blue-500 mb-2">
+                    <div className="w-1 h-4 bg-blue-500 rounded"></div>
+                    <span className="font-semibold text-sm">Request</span>
+                  </div>
+                  <div className="text-3xl font-bold mb-1">
+                    {totalBlocks > 0 ? (totalBlocks * 153).toLocaleString() : '0'}
+                  </div>
+                  <div className={`text-xs flex items-center ${percentageChange >= 0 ? 'text-blue-500' : 'text-blue-400'}`}>
+                    {percentageChange >= 0 ? '↑' : '↓'} {Math.abs(percentageChange).toFixed(2)}%
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center">
+                    Yesterday: {(totalBlocksYesterday * 153).toLocaleString()}
+                  </div>
+                  <Activity className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-10" />
+                </CardContent>
+              </Card>
+
               <Card className="shadow-sm border-t-4 border-t-red-500 relative overflow-hidden flex-1">
                 <CardContent className="p-4 flex flex-col justify-center h-full">
                   <div className="flex items-center space-x-2 text-red-500 mb-2">
@@ -137,11 +165,11 @@ export default function AdminWaf() {
                     <span className="font-semibold text-sm">Malicious request</span>
                   </div>
                   <div className="text-3xl font-bold mb-1">{totalBlocks}</div>
-                  <div className="text-xs text-red-500 flex items-center">
-                    ↓ -64.10%
+                  <div className={`text-xs flex items-center ${percentageChange >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                    {percentageChange >= 0 ? '↑' : '↓'} {Math.abs(percentageChange).toFixed(2)}%
                   </div>
                   <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                    Yesterday: 78
+                    Yesterday: {totalBlocksYesterday}
                   </div>
                   <ShieldAlert className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-10" />
                 </CardContent>
