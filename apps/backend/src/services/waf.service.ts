@@ -39,6 +39,73 @@ export const startWafLogWatcher = () => {
 const processNginxErrorLog = (line: string) => {
   if (!line || line.trim() === '') return;
   
+  // Periksa apakah log adalah JSON (Audit Log dari ModSecurity)
+  if (line.startsWith('{"transaction":')) {
+    try {
+      const auditLog = JSON.parse(line);
+      const transaction = auditLog.transaction;
+      
+      // Ambil IP dari X-Forwarded-For atau X-Real-Ip jika tersedia, fallback ke client_ip
+      let ipAddress = transaction.client_ip;
+      if (transaction.request && transaction.request.headers) {
+        const headers = transaction.request.headers;
+        if (headers['X-Forwarded-For']) {
+          ipAddress = headers['X-Forwarded-For'].split(',')[0].trim();
+        } else if (headers['X-Real-Ip']) {
+          ipAddress = headers['X-Real-Ip'].trim();
+        }
+      }
+      
+      let domain = 'Unknown';
+      if (transaction.request && transaction.request.headers && transaction.request.headers['X-Forwarded-Host']) {
+        domain = transaction.request.headers['X-Forwarded-Host'];
+      } else if (transaction.request && transaction.request.headers && transaction.request.headers['Host']) {
+        domain = transaction.request.headers['Host'];
+        if (domain.includes(':')) domain = domain.split(':')[0];
+      }
+      
+      if (domain === 'modsecurity' || domain === 'Unknown') {
+        domain = 'rshd.my.id (Protected)';
+      }
+      
+      let url = '/';
+      if (transaction.request && transaction.request.uri) {
+        url = transaction.request.uri;
+      }
+      
+      // Ambil pesan error dari messages
+      let rawMessage = 'Malicious request';
+      if (transaction.messages && transaction.messages.length > 0) {
+        rawMessage = transaction.messages[0].message || rawMessage;
+      }
+      
+      const attackType = extractAttackType(rawMessage, url);
+      const action = 'Blocked';
+      
+      // Parsing timestamp: "Fri Mar 20 08:59:38 2026"
+      let timestamp = new Date().toISOString();
+      if (transaction.time_stamp) {
+        const parsed = new Date(transaction.time_stamp);
+        if (!isNaN(parsed.getTime())) timestamp = parsed.toISOString();
+      }
+      
+      console.log(`[WAF] Captured Event (JSON): IP=${ipAddress}, Attack=${attackType}, URL=${url}`);
+      
+      const stmt = db.prepare(`
+        INSERT INTO waf_events (id, timestamp, ip_address, domain, attack_type, url, action)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      const id = nanoid();
+      stmt.run(id, timestamp, ipAddress, domain, attackType, url, action);
+      
+      return; // Berhenti memproses jika sudah berhasil parse JSON
+    } catch (err) {
+      console.error('[WAF] Error parsing JSON audit log:', err);
+      // Fallback ke parsing regex di bawah jika JSON gagal
+    }
+  }
+  
   // We only care about ModSecurity Access denied logs
   if (!line.includes('ModSecurity: Access denied')) return;
 
