@@ -35,6 +35,9 @@ export default function AdminDocker() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedContainer, setSelectedContainer] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState("Container status");
+  const [containerLogs, setContainerLogs] = useState<string>("");
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Fetch Overview Data
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -68,6 +71,25 @@ export default function AdminDocker() {
       });
     },
   });
+
+  const fetchLogs = async (id: string) => {
+    setLoadingLogs(true);
+    try {
+      const data = await apiRequest(`/system/docker/containers/${id}/logs`);
+      setContainerLogs(data.logs);
+    } catch (error) {
+      setContainerLogs("Failed to fetch logs.");
+    }
+    setLoadingLogs(false);
+  };
+
+  useEffect(() => {
+    if (selectedContainer && activeTab === "Real-time logs") {
+      fetchLogs(selectedContainer.id);
+      const interval = setInterval(() => fetchLogs(selectedContainer.id), 5000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedContainer, activeTab]);
 
   const filteredContainers = containers?.filter((c: any) => 
     c.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -235,7 +257,12 @@ export default function AdminDocker() {
         </Card>
 
         {/* Container Management Modal */}
-        <Dialog open={!!selectedContainer} onOpenChange={(open) => !open && setSelectedContainer(null)}>
+        <Dialog open={!!selectedContainer} onOpenChange={(open) => {
+          if (!open) {
+            setSelectedContainer(null);
+            setActiveTab("Container status");
+          }
+        }}>
           <DialogContent className="max-w-4xl h-[600px] flex flex-col p-0 overflow-hidden">
             <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
               <DialogTitle>Container Manage [{selectedContainer?.name}]</DialogTitle>
@@ -244,11 +271,12 @@ export default function AdminDocker() {
             <div className="flex flex-1 overflow-hidden">
               {/* Sidebar */}
               <div className="w-64 border-r bg-muted/10 p-4 space-y-1 overflow-y-auto">
-                {["Container status", "Container terminal", "Container details", "Storage volumes", "Container network", "Reboot strategy", "Create Image", "Rename", "Real-time logs", "Proxy"].map((item, i) => (
+                {["Container status", "Container terminal", "Container details", "Storage volumes", "Container network", "Reboot strategy", "Real-time logs"].map((item) => (
                   <Button 
                     key={item} 
-                    variant={i === 0 ? "secondary" : "ghost"} 
+                    variant={activeTab === item ? "secondary" : "ghost"} 
                     className="w-full justify-start font-normal"
+                    onClick={() => setActiveTab(item)}
                   >
                     {item}
                   </Button>
@@ -257,92 +285,203 @@ export default function AdminDocker() {
 
               {/* Main Content Area */}
               <div className="flex-1 p-6 overflow-y-auto">
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">Current Status:</span>
-                      <span className={`capitalize ${
-                        selectedContainer?.state === 'running' ? 'text-green-500' : 'text-red-500'
-                      }`}>
-                        {selectedContainer?.state}
-                      </span>
+                {activeTab === "Container status" && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">Current Status:</span>
+                        <span className={`capitalize ${
+                          selectedContainer?.state === 'running' ? 'text-green-500' : 'text-red-500'
+                        }`}>
+                          {selectedContainer?.state}
+                        </span>
+                      </div>
+                      <div className="space-x-2">
+                        {selectedContainer?.state === 'running' ? (
+                          <Button 
+                            variant="outline" 
+                            onClick={() => actionMutation.mutate({ id: selectedContainer.id, action: 'stop' })}
+                            disabled={actionMutation.isPending}
+                          >
+                            Stop
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            onClick={() => actionMutation.mutate({ id: selectedContainer.id, action: 'start' })}
+                            disabled={actionMutation.isPending}
+                          >
+                            Start
+                          </Button>
+                        )}
+                        <Button 
+                          variant="outline"
+                          onClick={() => actionMutation.mutate({ id: selectedContainer.id, action: 'restart' })}
+                          disabled={actionMutation.isPending}
+                        >
+                          Restart
+                        </Button>
+                      </div>
                     </div>
-                    <div className="space-x-2">
-                      {selectedContainer?.state === 'running' ? (
-                        <Button 
-                          variant="outline" 
-                          onClick={() => actionMutation.mutate({ id: selectedContainer.id, action: 'stop' })}
-                          disabled={actionMutation.isPending}
-                        >
-                          Stop
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="outline" 
-                          onClick={() => actionMutation.mutate({ id: selectedContainer.id, action: 'start' })}
-                          disabled={actionMutation.isPending}
-                        >
-                          Start
-                        </Button>
-                      )}
-                      <Button 
-                        variant="outline"
-                        onClick={() => actionMutation.mutate({ id: selectedContainer.id, action: 'restart' })}
-                        disabled={actionMutation.isPending}
-                      >
-                        Restart
+
+                    <div className="border rounded-md">
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="p-3 bg-muted/30 font-medium w-1/3">Container name</td>
+                            <td className="p-3">{selectedContainer?.name}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-3 bg-muted/30 font-medium">Container ID</td>
+                            <td className="p-3 break-all">{selectedContainer?.id}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-3 bg-muted/30 font-medium">Image used</td>
+                            <td className="p-3 break-all">{selectedContainer?.image} ({selectedContainer?.imageID})</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-3 bg-muted/30 font-medium">State</td>
+                            <td className="p-3">{selectedContainer?.state}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-3 bg-muted/30 font-medium">Creation time</td>
+                            <td className="p-3">{selectedContainer?.created ? new Date(selectedContainer.created * 1000).toLocaleString() : '-'}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-3 bg-muted/30 font-medium">Ports</td>
+                            <td className="p-3">
+                              {selectedContainer?.ports?.map((p: any, i: number) => (
+                                <div key={i} className="text-blue-500">
+                                  {p.IP}:{p.PublicPort} --&gt; {p.PrivatePort}/{p.Type}
+                                </div>
+                              )) || 'No published ports'}
+                            </td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-3 bg-muted/30 font-medium">Networks</td>
+                            <td className="p-3">
+                              {selectedContainer?.networkSettings?.networks ? 
+                                Object.keys(selectedContainer.networkSettings.networks).join(', ') : '-'}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 bg-muted/30 font-medium">Command</td>
+                            <td className="p-3 font-mono text-xs">{selectedContainer?.command}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "Container terminal" && (
+                  <div className="h-full flex items-center justify-center text-muted-foreground border border-dashed rounded-md bg-muted/5">
+                    <div className="text-center space-y-2">
+                      <Terminal className="h-8 w-8 mx-auto opacity-50" />
+                      <p>Web terminal integration requires WebSocket setup.</p>
+                      <p className="text-xs">Feature coming soon.</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "Container details" && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium border-b pb-2">Container Details</h3>
+                    <div className="bg-muted p-4 rounded-md overflow-x-auto">
+                      <pre className="text-xs">
+                        {JSON.stringify(selectedContainer, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "Storage volumes" && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium border-b pb-2">Storage Mounts</h3>
+                    {selectedContainer?.mounts?.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedContainer.mounts.map((mount: any, i: number) => (
+                          <div key={i} className="p-3 border rounded-md text-sm">
+                            <div className="font-medium mb-1 capitalize">{mount.Type} Mount</div>
+                            <div className="grid grid-cols-[100px_1fr] gap-1 text-muted-foreground">
+                              <span>Source:</span><span className="text-foreground break-all">{mount.Source}</span>
+                              <span>Destination:</span><span className="text-foreground break-all">{mount.Destination}</span>
+                              <span>Mode:</span><span className="text-foreground">{mount.Mode || mount.RW ? 'RW' : 'RO'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">No storage volumes mounted.</p>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "Container network" && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium border-b pb-2">Network Settings</h3>
+                    {selectedContainer?.networkSettings?.networks ? (
+                      <div className="space-y-3">
+                        {Object.entries(selectedContainer.networkSettings.networks).map(([name, net]: [string, any]) => (
+                          <div key={name} className="p-3 border rounded-md text-sm">
+                            <div className="font-medium mb-2">{name}</div>
+                            <table className="w-full">
+                              <tbody>
+                                <tr className="border-b border-muted">
+                                  <td className="py-1 text-muted-foreground w-32">IP Address</td>
+                                  <td>{net.IPAddress || '-'}</td>
+                                </tr>
+                                <tr className="border-b border-muted">
+                                  <td className="py-1 text-muted-foreground">Gateway</td>
+                                  <td>{net.Gateway || '-'}</td>
+                                </tr>
+                                <tr>
+                                  <td className="py-1 text-muted-foreground">Mac Address</td>
+                                  <td className="break-all">{net.MacAddress || '-'}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">No network information available.</p>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "Reboot strategy" && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium border-b pb-2">Restart Policy</h3>
+                    <div className="p-4 border rounded-md text-sm">
+                      <p className="mb-4 text-muted-foreground">
+                        The restart policy controls whether Docker should automatically restart the container when it exits.
+                      </p>
+                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded">
+                        <span className="font-medium">Current Policy</span>
+                        <span className="px-2 py-1 bg-background border rounded font-mono">
+                          {selectedContainer?.hostConfig?.RestartPolicy?.Name || 'no'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "Real-time logs" && (
+                  <div className="space-y-2 h-full flex flex-col">
+                    <div className="flex justify-between items-center flex-shrink-0">
+                      <h3 className="font-medium">Container Logs</h3>
+                      <Button variant="outline" size="sm" onClick={() => fetchLogs(selectedContainer.id)} disabled={loadingLogs}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${loadingLogs ? 'animate-spin' : ''}`} />
+                        Refresh
                       </Button>
                     </div>
+                    <div className="flex-1 bg-black text-green-400 p-4 rounded-md overflow-y-auto font-mono text-xs whitespace-pre-wrap">
+                      {loadingLogs && !containerLogs ? "Loading logs..." : containerLogs || "No logs available."}
+                    </div>
                   </div>
+                )}
 
-                  <div className="border rounded-md">
-                    <table className="w-full text-sm">
-                      <tbody>
-                        <tr className="border-b">
-                          <td className="p-3 bg-muted/30 font-medium w-1/3">Container name</td>
-                          <td className="p-3">{selectedContainer?.name}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="p-3 bg-muted/30 font-medium">Container ID</td>
-                          <td className="p-3 break-all">{selectedContainer?.id}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="p-3 bg-muted/30 font-medium">Image used</td>
-                          <td className="p-3 break-all">{selectedContainer?.image} ({selectedContainer?.imageID})</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="p-3 bg-muted/30 font-medium">State</td>
-                          <td className="p-3">{selectedContainer?.state}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="p-3 bg-muted/30 font-medium">Creation time</td>
-                          <td className="p-3">{selectedContainer?.created ? new Date(selectedContainer.created * 1000).toLocaleString() : '-'}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="p-3 bg-muted/30 font-medium">Ports</td>
-                          <td className="p-3">
-                            {selectedContainer?.ports?.map((p: any, i: number) => (
-                              <div key={i} className="text-blue-500">
-                                {p.IP}:{p.PublicPort} --&gt; {p.PrivatePort}/{p.Type}
-                              </div>
-                            )) || 'No published ports'}
-                          </td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="p-3 bg-muted/30 font-medium">Networks</td>
-                          <td className="p-3">
-                            {selectedContainer?.networkSettings?.networks ? 
-                              Object.keys(selectedContainer.networkSettings.networks).join(', ') : '-'}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="p-3 bg-muted/30 font-medium">Command</td>
-                          <td className="p-3 font-mono text-xs">{selectedContainer?.command}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
               </div>
             </div>
           </DialogContent>

@@ -82,6 +82,11 @@ export async function getDockerContainers(req: AuthRequest, res: Response) {
 export async function performContainerAction(req: AuthRequest, res: Response) {
   const { id, action } = req.params;
   try {
+    if (action === 'logs') {
+      const logs = execFileSync('docker', ['logs', '--tail', '100', id]).toString();
+      return res.json({ logs });
+    }
+
     const validActions = ['start', 'stop', 'restart', 'kill', 'rm'];
     if (!validActions.includes(action)) {
       return res.status(400).json({ error: 'Invalid action' });
