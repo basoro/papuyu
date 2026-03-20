@@ -64,6 +64,10 @@ services:
       - SEC_RULE_ENGINE=DetectionOnly
       - BACKEND=http://127.0.0.1:8081 # Point to our custom dummy backend that returns 200 OK
       - SERVER_NAME=localhost
+      # Configure Nginx to extract the real IP passed by Traefik
+      - PROXY_PRESERVE_HOST=on
+      - SET_REAL_IP_FROM=172.16.0.0/12
+      - REAL_IP_HEADER=X-Forwarded-For
       # NGINX Configuration via environment variables supported by the CRS image
       - NGINX_KEEPALIVE_TIMEOUT=65
       - PORT=8080
