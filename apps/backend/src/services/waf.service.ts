@@ -102,10 +102,22 @@ const processNginxErrorLog = (line: string) => {
       // Jika tidak diblokir (misal request normal /healthz), kita skip agar tidak menuh-menuhin database
       if (!isBlocked) return;
       
-      // Filter out internal Docker IPs
-      if (ipAddress.startsWith('172.') || ipAddress.startsWith('10.') || ipAddress.startsWith('192.168.') || ipAddress === '127.0.0.1') {
-        console.log(`[WAF] Ignored Event from Internal IP: ${ipAddress}`);
-        return;
+      // Mencegah IP kosong atau undefined
+      if (!ipAddress || ipAddress.trim() === '') {
+        ipAddress = 'Unknown';
+      }
+      
+      // Filter out internal Docker IPs - pastikan benar-benar terbuang
+      if (
+        ipAddress.startsWith('172.') || 
+        ipAddress.startsWith('10.') || 
+        ipAddress.startsWith('192.168.') || 
+        ipAddress === '127.0.0.1' ||
+        ipAddress === 'Unknown' ||
+        ipAddress === 'localhost'
+      ) {
+        console.log(`[WAF] Ignored Event from Internal IP (JSON): ${ipAddress}`);
+        return; // BERHENTI DI SINI, JANGAN MASUK KE DATABASE
       }
       
       console.log(`[WAF] Captured Event (JSON): IP=${ipAddress}, Attack=${attackType}, URL=${url}`);
