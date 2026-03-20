@@ -130,25 +130,6 @@ export default function AdminWaf() {
           {/* TOP ROW: Overview & Chart */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="col-span-1 h-[250px] flex gap-4">
-              <Card className="shadow-sm border-t-4 border-t-blue-500 relative overflow-hidden flex-1">
-                <CardContent className="p-4 flex flex-col justify-center h-full">
-                  <div className="flex items-center space-x-2 text-blue-500 mb-2">
-                    <div className="w-1 h-4 bg-blue-500 rounded"></div>
-                    <span className="font-semibold text-sm">Request</span>
-                  </div>
-                  <div className="text-3xl font-bold mb-1">
-                    {totalBlocks > 0 ? (totalBlocks * 153).toLocaleString() : '0'}
-                  </div>
-                  <div className="text-xs text-blue-500 flex items-center">
-                    ↓ -37.52%
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                    Yesterday: 297339
-                  </div>
-                  <Activity className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-10" />
-                </CardContent>
-              </Card>
-
               <Card className="shadow-sm border-t-4 border-t-red-500 relative overflow-hidden flex-1">
                 <CardContent className="p-4 flex flex-col justify-center h-full">
                   <div className="flex items-center space-x-2 text-red-500 mb-2">
@@ -286,7 +267,7 @@ export default function AdminWaf() {
           </div>
 
           {/* BOTTOM ROW: Block Type Pie & Latest Events */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="col-span-1">
               <Card className="shadow-sm h-full flex flex-col">
                 <CardHeader className="p-4 pb-2 border-b">
@@ -332,7 +313,7 @@ export default function AdminWaf() {
               </Card>
             </div>
 
-            <div className="col-span-1 md:col-span-3">
+            <div className="col-span-1 md:col-span-2">
               <Card className="shadow-sm h-full">
                 <CardHeader className="p-4 pb-2 border-b">
                   <CardTitle className="text-sm text-foreground flex items-center">
