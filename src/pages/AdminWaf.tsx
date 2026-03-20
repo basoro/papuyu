@@ -129,44 +129,42 @@ export default function AdminWaf() {
           
           {/* TOP ROW: Overview & Chart */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="col-span-1">
-              <div className="grid grid-cols-2 gap-4 h-[250px]">
-                <Card className="shadow-sm border-t-4 border-t-blue-500 relative overflow-hidden h-full">
-                  <CardContent className="p-4 flex flex-col justify-center h-full">
-                    <div className="flex items-center space-x-2 text-blue-500 mb-2">
-                      <div className="w-1 h-4 bg-blue-500 rounded"></div>
-                      <span className="font-semibold text-sm">Request</span>
-                    </div>
-                    <div className="text-3xl font-bold mb-1">
-                      {totalBlocks > 0 ? (totalBlocks * 153).toLocaleString() : '0'}
-                    </div>
-                    <div className="text-xs text-blue-500 flex items-center">
-                      ↓ -37.52%
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                      Yesterday: 297339
-                    </div>
-                    <Activity className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-10" />
-                  </CardContent>
-                </Card>
+            <div className="col-span-1 h-[250px] flex gap-4">
+              <Card className="shadow-sm border-t-4 border-t-blue-500 relative overflow-hidden flex-1">
+                <CardContent className="p-4 flex flex-col justify-center h-full">
+                  <div className="flex items-center space-x-2 text-blue-500 mb-2">
+                    <div className="w-1 h-4 bg-blue-500 rounded"></div>
+                    <span className="font-semibold text-sm">Request</span>
+                  </div>
+                  <div className="text-3xl font-bold mb-1">
+                    {totalBlocks > 0 ? (totalBlocks * 153).toLocaleString() : '0'}
+                  </div>
+                  <div className="text-xs text-blue-500 flex items-center">
+                    ↓ -37.52%
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center">
+                    Yesterday: 297339
+                  </div>
+                  <Activity className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-10" />
+                </CardContent>
+              </Card>
 
-                <Card className="shadow-sm border-t-4 border-t-red-500 relative overflow-hidden h-full">
-                  <CardContent className="p-4 flex flex-col justify-center h-full">
-                    <div className="flex items-center space-x-2 text-red-500 mb-2">
-                      <div className="w-1 h-4 bg-red-500 rounded"></div>
-                      <span className="font-semibold text-sm">Malicious request</span>
-                    </div>
-                    <div className="text-3xl font-bold mb-1">{totalBlocks}</div>
-                    <div className="text-xs text-red-500 flex items-center">
-                      ↓ -64.10%
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                      Yesterday: 78
-                    </div>
-                    <ShieldAlert className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-10" />
-                  </CardContent>
-                </Card>
-              </div>
+              <Card className="shadow-sm border-t-4 border-t-red-500 relative overflow-hidden flex-1">
+                <CardContent className="p-4 flex flex-col justify-center h-full">
+                  <div className="flex items-center space-x-2 text-red-500 mb-2">
+                    <div className="w-1 h-4 bg-red-500 rounded"></div>
+                    <span className="font-semibold text-sm">Malicious request</span>
+                  </div>
+                  <div className="text-3xl font-bold mb-1">{totalBlocks}</div>
+                  <div className="text-xs text-red-500 flex items-center">
+                    ↓ -64.10%
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center">
+                    Yesterday: 78
+                  </div>
+                  <ShieldAlert className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-10" />
+                </CardContent>
+              </Card>
             </div>
             <div className="col-span-1 md:col-span-3">
               <Card className="shadow-sm h-[250px] flex flex-col">
@@ -288,20 +286,20 @@ export default function AdminWaf() {
           {/* BOTTOM ROW: Block Type Pie & Latest Events */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="col-span-1">
-              <Card className="shadow-sm h-full">
+              <Card className="shadow-sm h-full flex flex-col">
                 <CardHeader className="p-4 pb-2 border-b">
                   <CardTitle className="text-sm text-foreground flex items-center">
                     <ShieldAlert className="w-4 h-4 mr-2" /> Block type
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 flex flex-col items-center h-[calc(100%-45px)]">
-                  <div className="w-full h-40 relative mb-4">
+                <CardContent className="p-4 flex-1 flex flex-col justify-center">
+                  <div className="w-full h-48 relative mb-4">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={pieData}
-                          innerRadius={50}
-                          outerRadius={70}
+                          innerRadius={60}
+                          outerRadius={80}
                           paddingAngle={2}
                           dataKey="value"
                         >
@@ -317,7 +315,7 @@ export default function AdminWaf() {
                       <span className="text-2xl font-bold">{totalBlocks}</span>
                     </div>
                   </div>
-                  <div className="w-full space-y-3 overflow-y-auto">
+                  <div className="w-full space-y-3 overflow-y-auto max-h-32">
                     {pieData.map((d, i) => (
                       <div key={i} className="flex items-center justify-between text-xs text-foreground">
                         <div className="flex items-center truncate">
