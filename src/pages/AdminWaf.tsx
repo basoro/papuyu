@@ -137,7 +137,7 @@ export default function AdminWaf() {
         <div className="space-y-4">
           
           {/* TOP ROW: Overview & Chart */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="col-span-1 h-[250px] flex gap-4">
               <Card className="shadow-sm border-t-4 border-t-blue-500 relative overflow-hidden flex-1">
                 <CardContent className="p-4 flex flex-col justify-center h-full">
@@ -175,7 +175,7 @@ export default function AdminWaf() {
                 </CardContent>
               </Card>
             </div>
-            <div className="col-span-1 md:col-span-3">
+            <div className="col-span-1 md:col-span-2">
               <Card className="shadow-sm h-[250px] flex flex-col">
                 <CardHeader className="p-4 pb-0 border-b flex flex-row items-center justify-between">
                   <CardTitle className="text-sm text-foreground flex items-center">
