@@ -63,11 +63,14 @@ services:
       - SEC_RULE_ENGINE=DetectionOnly
       - BACKEND=http://127.0.0.1:8080 # Dummy backend so Nginx doesn't crash
       - SERVER_NAME=localhost
+      # NGINX Configuration via environment variables supported by the CRS image
+      - NGINX_KEEPALIVE_TIMEOUT=65
+      - PORT=8080
     networks:
       - papuyu-network
     volumes:
-      - ./modsec-nginx.conf:/etc/nginx/templates/default.conf.template
-      - ./nginx-main.conf:/etc/nginx/nginx.conf
+      # Mount as a specific conf.d file instead of overriding the template
+      - ./modsec-nginx.conf:/etc/nginx/conf.d/zzz-custom.conf
 
   traefik:
     image: traefik:v2.10
