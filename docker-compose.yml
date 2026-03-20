@@ -60,9 +60,12 @@ services:
   modsecurity:
     image: owasp/modsecurity-crs:nginx
     environment:
-      - SEC_RULE_ENGINE=DetectionOnly # Safe default for PaaS, logs but doesn't block
+      - SEC_RULE_ENGINE=DetectionOnly
+      - BACKEND=http://127.0.0.1:8080 # Dummy backend so Nginx doesn't crash
     networks:
       - papuyu-network
+    volumes:
+      - ./modsec-nginx.conf:/etc/nginx/templates/default.conf.template
 
   traefik:
     image: traefik:v2.10
