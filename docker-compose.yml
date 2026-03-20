@@ -30,6 +30,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock  # Docker-in-Docker access
       - ./data:/app/data                            # SQLite persistence (Host Volume)
       - /tmp/papuyu-builds:/tmp/papuyu-builds          # Build directory
+      - ./logs/modsec:/var/log/modsec:ro
     environment:
       - PORT=4000
       - JWT_SECRET=${JWT_SECRET:-dev-secret-key}
@@ -71,6 +72,8 @@ services:
     volumes:
       # Mount as a specific conf.d file instead of overriding the template
       - ./modsec-nginx.conf:/etc/nginx/conf.d/zzz-custom.conf
+      # Mount the log directory so the backend can read it
+      - ./logs/modsec:/var/log/modsec
 
   traefik:
     image: traefik:v2.10

@@ -7,6 +7,7 @@ import {
   LogOut,
   Fish,
   Box,
+  ShieldCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -33,6 +34,7 @@ const mainItems = [
 const adminItems = [
   { title: "Users", url: "/users", icon: Users },
   { title: "Docker", url: "/admin/docker", icon: Box },
+  { title: "WAF Dashboard", url: "/admin/waf", icon: ShieldCheck },
 ];
 
 const bottomItems = [

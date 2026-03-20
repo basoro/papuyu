@@ -27,6 +27,16 @@ CREATE TABLE IF NOT EXISTS projects (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS waf_events (
+  id              TEXT PRIMARY KEY,
+  timestamp       DATETIME DEFAULT CURRENT_TIMESTAMP,
+  ip_address      TEXT,
+  domain          TEXT,
+  attack_type     TEXT,
+  url             TEXT,
+  action          TEXT
+);
+
 -- Deployment logs table
 CREATE TABLE IF NOT EXISTS deployment_logs (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,

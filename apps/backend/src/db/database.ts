@@ -60,6 +60,23 @@ try {
   console.error('Migration failed for waf_enabled:', e);
 }
 
+try {
+  // Create WAF events table if it doesn't exist
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS waf_events (
+      id              TEXT PRIMARY KEY,
+      timestamp       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      ip_address      TEXT,
+      domain          TEXT,
+      attack_type     TEXT,
+      url             TEXT,
+      action          TEXT
+    )
+  `).run();
+} catch (e: any) {
+  console.error('Failed to create waf_events table:', e);
+}
+
 console.log(`Database connected at ${dbPath}`);
 
 export default db;
