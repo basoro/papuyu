@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, PlusCircle, Trash2, DownloadCloud } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, X, PlusCircle, Trash2, DownloadCloud, ShieldAlert } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,6 +28,7 @@ export default function Projects() {
     port: "80",
     env_vars: [] as { key: string; value: string }[],
     subdomain: "",
+    waf_enabled: false,
   });
 
   const handleCreate = async () => {
@@ -42,6 +44,7 @@ export default function Projects() {
       port: parseInt(form.port) || 3000,
       env_vars: form.env_vars,
       subdomain: form.subdomain || undefined,
+      waf_enabled: form.waf_enabled,
     });
     setLoading(false);
     setForm({ 
@@ -54,6 +57,7 @@ export default function Projects() {
       port: "80",
       env_vars: [],
       subdomain: "",
+      waf_enabled: false,
     });
     setShowForm(false);
   };
@@ -241,6 +245,25 @@ export default function Projects() {
                 <Label className="text-xs text-muted-foreground">Container Port (Internal)</Label>
                 <Input type="number" placeholder="3000" value={form.port} onChange={e => setForm({ ...form, port: e.target.value })} className="bg-background font-mono text-sm" />
                 <p className="text-[10px] text-muted-foreground">Port dimana aplikasi berjalan (misal: 80 untuk Nginx, 3000 untuk Node)</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-border">
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-medium">Enable Web Application Firewall (WAF)</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground ml-6">
+                    Protects your app from SQLi, XSS, and common attacks using ModSecurity. <br/>
+                    <span className="text-amber-500">Warning: May block complex API payloads or large file uploads.</span>
+                  </p>
+                </div>
+                <Switch 
+                  checked={form.waf_enabled} 
+                  onCheckedChange={checked => setForm({ ...form, waf_enabled: checked })} 
+                />
               </div>
             </div>
 

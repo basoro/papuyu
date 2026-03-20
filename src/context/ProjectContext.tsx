@@ -15,6 +15,7 @@ export interface Project {
   port: number;
   env_vars?: { key: string; value: string }[];
   subdomain?: string;
+  waf_enabled?: boolean;
   container_id: string | null;
   status: "idle" | "building" | "running" | "stopped" | "failed" | "queued";
   user_id: number;

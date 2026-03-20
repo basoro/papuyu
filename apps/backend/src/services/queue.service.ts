@@ -79,7 +79,7 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
 
        // Docker Compose Logic
        logMessage(projectId, `Starting Docker Compose with ${project.compose_file}...`);
-       await composeUp(projectId, buildDir, project.compose_file, project.port, project.subdomain || undefined, (msg) => logMessage(projectId, msg));
+       await composeUp(projectId, buildDir, project.compose_file, project.port, project.subdomain || undefined, project.waf_enabled === 1, (msg: string) => logMessage(projectId, msg));
        logMessage(projectId, 'Docker Compose services started');
        containerId = 'compose-group';
 
@@ -96,7 +96,7 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
       logMessage(projectId, 'Docker image built successfully');
   
       logMessage(projectId, `Starting container on port ${project.port}...`);
-      containerId = await runContainer(projectId, project.port, project.subdomain || undefined, (msg) => logMessage(projectId, msg));
+      containerId = await runContainer(projectId, project.port, project.subdomain || undefined, project.waf_enabled === 1, (msg: string) => logMessage(projectId, msg));
       logMessage(projectId, `Container running: ${containerId.substring(0, 12)}`);
     }
 

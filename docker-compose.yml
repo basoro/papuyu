@@ -57,6 +57,13 @@ services:
     networks:
       - papuyu-network
 
+  modsecurity:
+    image: owasp/modsecurity-crs:v3.3.4
+    environment:
+      - SEC_RULE_ENGINE=DetectionOnly # Safe default for PaaS, logs but doesn't block
+    networks:
+      - papuyu-network
+
   traefik:
     image: traefik:v2.10
     command:
@@ -71,6 +78,8 @@ services:
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.myresolver.acme.email=admin@rshd.my.id"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--experimental.plugins.traefik-modsecurity-plugin.moduleName=github.com/acouvreur/traefik-modsecurity-plugin"
+      - "--experimental.plugins.traefik-modsecurity-plugin.version=v1.3.0"
     ports:
       - "80:80"
       - "443:443"

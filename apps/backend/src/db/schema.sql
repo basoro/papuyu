@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS projects (
   port            INTEGER DEFAULT 3000,
   env_vars        TEXT,                  -- JSON stringified: [{"key": "DB_HOST", "value": "localhost"}]
   subdomain       TEXT UNIQUE,           -- Custom subdomain (optional)
+  waf_enabled     INTEGER DEFAULT 0,     -- Web Application Firewall (0 = false, 1 = true)
   container_id    TEXT,                  -- Docker container ID
   status          TEXT DEFAULT 'idle',   -- idle | building | running | stopped | failed
   user_id         INTEGER NOT NULL,

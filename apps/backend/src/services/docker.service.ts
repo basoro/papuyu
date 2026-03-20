@@ -100,7 +100,7 @@ export async function buildImage(projectId: string, buildDir: string, dockerfile
   );
 }
 
-export async function runContainer(projectId: string, port: number, subdomain?: string, onLog?: (msg: string) => void): Promise<string> {
+export async function runContainer(projectId: string, port: number, subdomain?: string, wafEnabled?: boolean, onLog?: (msg: string) => void): Promise<string> {
   const safeProjectId = canonicalId(projectId);
   const imageName = `papuyu-${safeProjectId}:latest`;
   const containerName = `papuyu-${safeProjectId}`;
@@ -126,6 +126,13 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
     '--label', `traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}`,
     '--label', 'traefik.docker.network=papuyu-network'
   ];
+
+  if (wafEnabled) {
+    labelArgs.push(
+      '--label', `traefik.http.middlewares.waf-${safeProjectId}.plugin.traefik-modsecurity-plugin.modSecurityUrl=http://modsecurity:80`,
+      '--label', `traefik.http.routers.papuyu-${safeProjectId}.middlewares=waf-${safeProjectId}`
+    );
+  }
 
   // Connect to papuyu-network and do NOT map host port
   const output = await execStream(
@@ -352,7 +359,7 @@ export function replacePortInDockerfile(buildDir: string, dockerfilePath: string
   }
 }
 
-export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, onLog?: (msg: string) => void): Promise<void> {
+export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, wafEnabled?: boolean, onLog?: (msg: string) => void): Promise<void> {
   const safeProjectId = canonicalId(projectId);
   const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   const filePath = resolveComposeFile(buildDir, composeFile);
@@ -367,6 +374,14 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
         validateSubdomain(subdomain);
       }
       const host = subdomain ? `${subdomain}.${config.domain}` : `${safeProjectId}.${config.domain}`;
+      
+      let wafLabels = '';
+      if (wafEnabled) {
+        wafLabels = `
+      - "traefik.http.middlewares.waf-${safeProjectId}.plugin.traefik-modsecurity-plugin.modSecurityUrl=http://modsecurity:80"
+      - "traefik.http.routers.papuyu-${safeProjectId}.middlewares=waf-${safeProjectId}"`;
+      }
+
       const overrideContent = `
 version: '3.8'
 services:
@@ -381,7 +396,7 @@ services:
       - "traefik.http.routers.papuyu-${safeProjectId}.tls=true"
       - "traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=myresolver"
       - "traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}"
-      - "traefik.docker.network=papuyu-network"
+      - "traefik.docker.network=papuyu-network"${wafLabels}
 
 networks:
   papuyu-network:

@@ -39,20 +39,20 @@ export default function AdminDocker() {
   // Fetch Overview Data
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ["dockerOverview"],
-    queryFn: () => apiRequest("/api/system/docker/overview"),
+    queryFn: () => apiRequest("/system/docker/overview"),
   });
 
   // Fetch Containers Data
   const { data: containers, isLoading: containersLoading } = useQuery({
     queryKey: ["dockerContainers"],
-    queryFn: () => apiRequest("/api/system/docker/containers"),
+    queryFn: () => apiRequest("/system/docker/containers"),
     refetchInterval: 5000, // Refresh every 5 seconds for real-time feel
   });
 
   // Container Action Mutation
   const actionMutation = useMutation({
     mutationFn: ({ id, action }: { id: string; action: string }) =>
-      apiRequest(`/api/system/docker/containers/${id}/${action}`, "POST"),
+      apiRequest(`/system/docker/containers/${id}/${action}`, "POST"),
     onSuccess: (data, variables) => {
       toast({
         title: "Action Successful",

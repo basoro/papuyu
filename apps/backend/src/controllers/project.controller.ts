@@ -43,7 +43,7 @@ export function getProjectEnv(req: AuthRequest, res: Response) {
 }
 
 export function createProject(req: AuthRequest, res: Response) {
-  const { name, git_repository, branch, dockerfile_path, port, project_type, compose_file, env_vars, subdomain } = req.body;
+  const { name, git_repository, branch, dockerfile_path, port, project_type, compose_file, env_vars, subdomain, waf_enabled } = req.body;
   const userId = req.userId!;
 
   if (!name || !git_repository) {
@@ -58,8 +58,8 @@ export function createProject(req: AuthRequest, res: Response) {
   
   try {
     const stmt = db.prepare(`
-      INSERT INTO projects (id, name, git_repository, branch, dockerfile_path, port, user_id, project_type, compose_file, env_vars, subdomain)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, name, git_repository, branch, dockerfile_path, port, user_id, project_type, compose_file, env_vars, subdomain, waf_enabled)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     stmt.run(
@@ -73,7 +73,8 @@ export function createProject(req: AuthRequest, res: Response) {
       project_type || 'dockerfile',
       compose_file || 'docker-compose.yml',
       JSON.stringify(env_vars || []),
-      subdomain || null
+      subdomain || null,
+      waf_enabled ? 1 : 0
     );
 
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);

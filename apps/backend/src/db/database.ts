@@ -47,6 +47,19 @@ try {
   console.error('Migration failed for subdomain:', e);
 }
 
+try {
+  const columns = db.prepare("PRAGMA table_info(projects)").all() as any[];
+  const hasWafEnabled = columns.some(c => c.name === 'waf_enabled');
+  
+  if (!hasWafEnabled) {
+    console.log('Migrating: Adding waf_enabled column to projects table');
+    db.prepare("ALTER TABLE projects ADD COLUMN waf_enabled INTEGER DEFAULT 0").run();
+    console.log('Migration successful: waf_enabled column added');
+  }
+} catch (e: any) {
+  console.error('Migration failed for waf_enabled:', e);
+}
+
 console.log(`Database connected at ${dbPath}`);
 
 export default db;
