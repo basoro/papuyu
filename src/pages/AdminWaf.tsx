@@ -329,7 +329,6 @@ export default function AdminWaf() {
                         <th className="p-4 font-normal">Domain</th>
                         <th className="p-4 font-normal">Attack type</th>
                         <th className="p-4 font-normal">URL</th>
-                        <th className="p-4 font-normal text-right">Operate</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -338,13 +337,8 @@ export default function AdminWaf() {
                           <td className="p-4 text-muted-foreground whitespace-nowrap">{block.time}</td>
                           <td className="p-4 font-medium">{block.ip}</td>
                           <td className="p-4 text-muted-foreground truncate max-w-[150px]" title={block.domain}>{block.domain}</td>
-                          <td className="p-4 font-semibold text-foreground">{block.type}</td>
+                          <td className="p-4 font-semibold text-foreground whitespace-nowrap">{block.type}</td>
                           <td className="p-4 text-muted-foreground truncate max-w-[200px]" title={block.url}>{block.url}</td>
-                          <td className="p-4 text-right space-x-2 whitespace-nowrap">
-                            <button className="text-blue-500 hover:underline text-xs">Block IP</button>
-                            <button className="text-blue-500 hover:underline text-xs">White URL</button>
-                            <button className="text-muted-foreground hover:text-foreground text-xs">Details</button>
-                          </td>
                         </tr>
                       ))}
                     </tbody>
