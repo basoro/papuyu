@@ -103,3 +103,14 @@ export async function performContainerAction(req: AuthRequest, res: Response) {
     res.status(500).json({ error: `Failed to ${action} container` });
   }
 }
+
+export async function pruneDockerSystem(req: AuthRequest, res: Response) {
+  try {
+    // Run docker system prune -a -f (removes stopped containers, all unused images, networks)
+    const output = execFileSync('docker', ['system', 'prune', '-a', '-f']).toString();
+    res.json({ message: 'Docker system pruned successfully', output });
+  } catch (error: any) {
+    console.error('Docker prune error:', error);
+    res.status(500).json({ error: 'Failed to prune Docker system' });
+  }
+}

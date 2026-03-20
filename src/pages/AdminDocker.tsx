@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -18,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Box, Layers, HardDrive, Network, Database, Server, RefreshCw, Terminal, Search } from "lucide-react";
+import { Box, Layers, HardDrive, Network, Database, Server, RefreshCw, Terminal, Search, Trash2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 // Helper function to format bytes to GB/MB
@@ -72,6 +71,25 @@ export default function AdminDocker() {
     },
   });
 
+  // Prune System Mutation
+  const pruneMutation = useMutation({
+    mutationFn: () => apiRequest(`/system/docker/prune`, "POST"),
+    onSuccess: (data) => {
+      toast({
+        title: "Prune Successful",
+        description: data.message || "Successfully cleaned up unused Docker resources.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["dockerOverview"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Prune Failed",
+        description: error.message || "Failed to prune Docker system.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const fetchLogs = async (id: string) => {
     setLoadingLogs(true);
     try {
@@ -106,12 +124,26 @@ export default function AdminDocker() {
               Monitor and manage containers, images, and resources across the platform.
             </p>
           </div>
-          <Button variant="outline" size="icon" onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ["dockerOverview"] });
-            queryClient.invalidateQueries({ queryKey: ["dockerContainers"] });
-          }}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              variant="destructive" 
+              onClick={() => {
+                if (window.confirm("Are you sure you want to prune the Docker system? This will remove all stopped containers, unused networks, and dangling images.")) {
+                  pruneMutation.mutate();
+                }
+              }}
+              disabled={pruneMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {pruneMutation.isPending ? "Pruning..." : "System Prune"}
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["dockerOverview"] });
+              queryClient.invalidateQueries({ queryKey: ["dockerContainers"] });
+            }}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Resource Overview */}
