@@ -87,12 +87,17 @@ export default function AdminWaf() {
     url: e.url
   })) || [];
 
-  // Mock data for charts
-  const timeData = Array.from({ length: 24 }).map((_, i) => ({
-    time: `${String(i).padStart(2, '0')}:00`,
-    total: Math.floor(Math.random() * 500) + 100,
-    afterFilter: Math.floor(Math.random() * 450) + 50,
-  }));
+  // Data for main chart
+  let timeData = stats?.timeSeriesData || [];
+  
+  // If there's no real data, fallback to generating empty/mock layout with 24 hours so chart doesn't break
+  if (timeData.length === 0) {
+    timeData = Array.from({ length: 24 }).map((_, i) => ({
+      time: `${String(i).padStart(2, '0')}:00`,
+      total: 0,
+      afterFilter: 0,
+    }));
+  }
 
   const miniChartData = Array.from({ length: 10 }).map((_, i) => ({
     time: `11:08:${i * 5}`,

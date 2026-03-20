@@ -200,12 +200,25 @@ export async function getWafStats(req: AuthRequest, res: Response) {
       SELECT COUNT(*) as count FROM waf_events WHERE timestamp >= ?
     `).get(todayStr) as { count: number };
 
+    // 6. Time series data (last 24 hours, grouped by hour)
+    const timeSeriesData = db.prepare(`
+      SELECT 
+        strftime('%H:00', timestamp) as time,
+        COUNT(*) as total,
+        COUNT(CASE WHEN action != 'Passed' THEN 1 END) as afterFilter
+      FROM waf_events 
+      WHERE timestamp >= datetime('now', '-24 hours')
+      GROUP BY strftime('%Y-%m-%d %H:00', timestamp)
+      ORDER BY timestamp ASC
+    `).all();
+
     res.json({
       latestEvents,
       blockTypes,
       topIps,
       topDomains,
-      totalBlocksToday: totalBlocksToday.count || 0
+      totalBlocksToday: totalBlocksToday.count || 0,
+      timeSeriesData
     });
   } catch (error: any) {
     console.error('WAF stats error:', error);
