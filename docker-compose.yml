@@ -62,10 +62,12 @@ services:
     environment:
       - SEC_RULE_ENGINE=DetectionOnly
       - BACKEND=http://127.0.0.1:8080 # Dummy backend so Nginx doesn't crash
+      - SERVER_NAME=localhost
     networks:
       - papuyu-network
     volumes:
       - ./modsec-nginx.conf:/etc/nginx/templates/default.conf.template
+      - ./nginx-main.conf:/etc/nginx/nginx.conf
 
   traefik:
     image: traefik:v2.10
