@@ -129,7 +129,8 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
 
   if (wafEnabled) {
     labelArgs.push(
-      '--label', `traefik.http.middlewares.waf-${safeProjectId}.plugin.traefik-modsecurity-plugin.modSecurityUrl=http://modsecurity:80`,
+      '--label', `traefik.http.middlewares.waf-${safeProjectId}.plugin.traefik-modsecurity-plugin.modSecurityUrl=http://modsecurity:8080`,
+      '--label', `traefik.http.middlewares.waf-${safeProjectId}.plugin.traefik-modsecurity-plugin.maxBodySize=52428800`,
       '--label', `traefik.http.routers.papuyu-${safeProjectId}.middlewares=waf-${safeProjectId}`
     );
   }
@@ -378,7 +379,8 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
       let wafLabels = '';
       if (wafEnabled) {
         wafLabels = `
-      - "traefik.http.middlewares.waf-${safeProjectId}.plugin.traefik-modsecurity-plugin.modSecurityUrl=http://modsecurity:80"
+      - "traefik.http.middlewares.waf-${safeProjectId}.plugin.traefik-modsecurity-plugin.modSecurityUrl=http://modsecurity:8080"
+      - "traefik.http.middlewares.waf-${safeProjectId}.plugin.traefik-modsecurity-plugin.maxBodySize=52428800"
       - "traefik.http.routers.papuyu-${safeProjectId}.middlewares=waf-${safeProjectId}"`;
       }
 
