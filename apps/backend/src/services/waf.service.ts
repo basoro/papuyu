@@ -55,11 +55,12 @@ const processNginxErrorLog = (line: string) => {
 
     let ipAddress = clientIpMatch ? clientIpMatch[1] : 'Unknown';
     
-    // NGINX Kadang menambahkan "forwarded_for" di akhir log error
-    const forwardedForMatch = line.match(/forwarded_for:\s*"([^"]+)"/);
-    if (forwardedForMatch && forwardedForMatch[1]) {
-      // Ambil IP pertama jika ada beberapa (contoh: "1.2.3.4, 5.6.7.8")
-      ipAddress = forwardedForMatch[1].split(',')[0].trim();
+    // Check for X-Forwarded-For header if present in the request string
+    // Sometimes it's inside the request string or at the end of the log
+    const xffMatch = line.match(/X-Forwarded-For(?:[:=]\s*|,\s*)"?([^"\]\s]+)"?/i);
+    
+    if (xffMatch && xffMatch[1]) {
+      ipAddress = xffMatch[1].split(',')[0].trim();
     } else {
       // Jika tidak ada forwarded_for eksplisit, coba cari string IP publik apa pun dalam log
       // Regex ini mencari IP valid, menghindari IP lokal/private (10.x, 172.16-31.x, 192.168.x, 127.x)
