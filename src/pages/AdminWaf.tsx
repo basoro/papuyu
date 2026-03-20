@@ -40,12 +40,14 @@ export default function AdminWaf() {
   const fetchStats = async () => {
     try {
       setLoading(true);
+      console.log('[AdminWaf] Fetching stats from:', `${API_URL}/system/waf/stats`);
       const res = await fetch(`${API_URL}/system/waf/stats`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
       const data = await res.json();
+      console.log('[AdminWaf] Received stats data:', data);
       setStats(data);
     } catch (err) {
       console.error('Failed to fetch WAF stats', err);

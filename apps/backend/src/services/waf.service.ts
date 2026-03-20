@@ -37,9 +37,14 @@ export const startWafLogWatcher = () => {
 
     tail.on('line', (line: string) => {
       try {
-        if (!line || !line.trim().startsWith('{')) return; // Ignore non-JSON lines
+        console.log('[WAF] New log line detected, length:', line.length);
+        if (!line || !line.trim().startsWith('{')) {
+          console.log('[WAF] Ignoring non-JSON log line');
+          return; // Ignore non-JSON lines
+        }
         
         const data = JSON.parse(line);
+        console.log('[WAF] Successfully parsed JSON log for transaction:', data?.transaction?.id);
         processWafLog(data);
       } catch (err) {
         console.error('[WAF] Error parsing log line:', err);
@@ -55,35 +60,18 @@ export const startWafLogWatcher = () => {
 };
 
 const processWafLog = (data: any) => {
-  // Extract useful information from ModSecurity JSON log format
-  // Example format:
-  // {
-  //   "transaction": {
-  //     "time": "20/Mar/2026:11:01:42 +0000",
-  //     "client_ip": "103.253.27.24",
-  //     "request": {
-  //       "headers": {
-  //         "Host": "rshd.my.id"
-  //       },
-  //       "uri": "/images/shell.php"
-  //     },
-  //     "messages": [
-  //       {
-  //         "message": "Malicious script detected",
-  //         "details": {
-  //           "action": "intercepted",
-  //           "ruleId": "933100"
-  //         }
-  //       }
-  //     ]
-  //   }
-  // }
-  
+  console.log('[WAF] Processing WAF log...');
   const transaction = data?.transaction;
-  if (!transaction) return;
+  if (!transaction) {
+    console.log('[WAF] No transaction object found in log');
+    return;
+  }
 
   const messages = transaction.messages || [];
-  if (messages.length === 0) return; // Not an attack if there are no messages
+  if (messages.length === 0) {
+    console.log('[WAF] No messages found in transaction, not an attack');
+    return; // Not an attack if there are no messages
+  }
 
   const ipAddress = transaction.client_ip || 'Unknown';
   const domain = transaction.request?.headers?.Host || 'Unknown';
@@ -96,6 +84,8 @@ const processWafLog = (data: any) => {
   // Assuming "action" from details or default to Blocked if it's an alert
   const action = firstMessage.details?.action || 'Blocked';
   
+  console.log(`[WAF] Extracted Data: IP=${ipAddress}, Domain=${domain}, URL=${url}, Attack=${attackType}, Action=${action}`);
+
   // Parse ModSec time "20/Mar/2026:11:01:42 +0000" to SQLite datetime format
   let timestamp = new Date().toISOString(); // fallback
   try {
@@ -107,7 +97,9 @@ const processWafLog = (data: any) => {
         timestamp = dateObj.toISOString();
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[WAF] Error parsing time:', e);
+  }
 
   // Insert into SQLite
   try {
@@ -116,9 +108,11 @@ const processWafLog = (data: any) => {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
-    stmt.run(nanoid(), timestamp, ipAddress, domain, attackType, url, action);
+    const id = nanoid();
+    stmt.run(id, timestamp, ipAddress, domain, attackType, url, action);
+    console.log(`[WAF] Successfully saved event to database with ID: ${id}`);
   } catch (err) {
-    console.error('[WAF] Failed to insert WAF event:', err);
+    console.error('[WAF] Failed to insert WAF event into database:', err);
   }
 };
 

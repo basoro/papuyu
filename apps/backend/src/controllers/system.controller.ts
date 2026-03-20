@@ -161,6 +161,8 @@ export async function getWafStats(req: AuthRequest, res: Response) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString();
+    
+    console.log('[WAF-API] Fetching WAF stats for date >=', todayStr);
 
     // 1. Latest Events
     const latestEvents = db.prepare(`
@@ -168,6 +170,7 @@ export async function getWafStats(req: AuthRequest, res: Response) {
       ORDER BY timestamp DESC 
       LIMIT 10
     `).all();
+    console.log('[WAF-API] Latest Events Count:', latestEvents.length);
 
     // 2. Block type breakdown (today)
     const blockTypes = db.prepare(`
@@ -176,6 +179,7 @@ export async function getWafStats(req: AuthRequest, res: Response) {
       WHERE timestamp >= ? 
       GROUP BY attack_type
     `).all(todayStr);
+    console.log('[WAF-API] Block Types:', blockTypes);
 
     // 3. Top IP addresses
     const topIps = db.prepare(`
@@ -199,6 +203,7 @@ export async function getWafStats(req: AuthRequest, res: Response) {
     const totalBlocksToday = db.prepare(`
       SELECT COUNT(*) as count FROM waf_events WHERE timestamp >= ?
     `).get(todayStr) as { count: number };
+    console.log('[WAF-API] Total Blocks Today:', totalBlocksToday.count);
 
     // 6. Time series data (last 24 hours, grouped by hour)
     const timeSeriesData = db.prepare(`
@@ -211,6 +216,7 @@ export async function getWafStats(req: AuthRequest, res: Response) {
       GROUP BY strftime('%Y-%m-%d %H:00', timestamp)
       ORDER BY timestamp ASC
     `).all();
+    console.log('[WAF-API] Time Series Data Points:', timeSeriesData.length);
 
     res.json({
       latestEvents,
