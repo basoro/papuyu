@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,44 +9,12 @@ import {
 } from "@/components/ui/card";
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, BarChart, Bar, Legend
+  PieChart, Pie, Cell
 } from "recharts";
-import { ShieldAlert, Bug, Globe, Activity, HardDrive, Filter, Clock } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { ShieldAlert, Activity, Globe, HardDrive, Filter, Clock, RefreshCw } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
-// Mock Data for Charts
-const timeData = Array.from({ length: 24 }).map((_, i) => ({
-  time: `${String(i).padStart(2, '0')}:00`,
-  total: Math.floor(Math.random() * 500) + 100,
-  afterFilter: Math.floor(Math.random() * 450) + 50,
-  traffic: Math.floor(Math.random() * 300),
-  ipCount: Math.floor(Math.random() * 100) + 10,
-}));
-
-const miniChartData = Array.from({ length: 10 }).map((_, i) => ({
-  time: `11:08:${i * 5}`,
-  value: Math.floor(Math.random() * 15) + 2,
-}));
-
-const pieData = [
-  { name: 'Malicious script', value: 15, color: '#22c55e' },
-  { name: 'Website backdoor', value: 2, color: '#3b82f6' },
-  { name: 'cc', value: 1, color: '#f97316' },
-];
-
-const topDomains = [
-  { domain: 'rshdbarabai.hstkab.go.id', count: 16, percentage: 100 },
-  { domain: 'rshdbarabai.com', count: 2, percentage: 15 },
-  { domain: 'simrs.rshdbarabai.com', count: 1, percentage: 8 },
-];
-
-const topIps = [
-  { ip: '103.253.27.24', count: 2489, percentage: 100 },
-  { ip: '39.194.4.214', count: 68, percentage: 5 },
-  { ip: '114.122.213.117', count: 64, percentage: 4 },
-  { ip: '20.151.11.236', count: 177, percentage: 10 },
-  { ip: '142.93.211.25', count: 172, percentage: 9 },
-];
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.rshd.my.id';
 
 const topPages = [
   { page: '/service-worker.js', count: 2021, percentage: 100 },
@@ -54,14 +22,6 @@ const topPages = [
   { page: '/admin/rawat_inap...', count: 1640, percentage: 80 },
   { page: '/admin/dashboard', count: 557, percentage: 30 },
   { page: '/themes/admin...', count: 454, percentage: 25 },
-];
-
-const latestBlocks = [
-  { time: '2026-03-20 11:01:42', ip: '103.253.27.24', domain: 'rshdbarabai.hstkab.go.id', type: 'Malicious script', url: '/images/shell.php' },
-  { time: '2026-03-20 11:01:42', ip: '103.253.27.24', domain: 'rshdbarabai.hstkab.go.id', type: 'Malicious script', url: '/images/shell.php' },
-  { time: '2026-03-20 10:55:52', ip: '103.253.27.24', domain: 'rshdbarabai.hstkab.go.id', type: 'Malicious script', url: '/shell.php' },
-  { time: '2026-03-20 10:55:52', ip: '103.253.27.24', domain: 'rshdbarabai.hstkab.go.id', type: 'Malicious script', url: '/shell.php' },
-  { time: '2026-03-20 10:50:54', ip: '103.253.27.24', domain: 'rshdbarabai.hstkab.go.id', type: 'Malicious script', url: '/wp-admin/css/colors/coffee/shell.php' },
 ];
 
 const mapStats = [
@@ -73,6 +33,71 @@ const mapStats = [
 
 export default function AdminWaf() {
   const [dateFilter, setDateFilter] = useState("Today");
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const { token } = useAuth();
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_URL}/system/waf/stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      setStats(data);
+    } catch (err) {
+      console.error('Failed to fetch WAF stats', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+    const interval = setInterval(fetchStats, 30000); // refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalBlocks = stats?.totalBlocksToday || 0;
+  const pieData = stats?.blockTypes?.map((b: any, i: number) => ({
+    name: b.name,
+    value: b.value,
+    color: ['#22c55e', '#3b82f6', '#f97316', '#ef4444', '#a855f7'][i % 5]
+  })) || [{ name: 'No data', value: 1, color: '#e5e7eb' }];
+
+  const topDomains = stats?.topDomains?.map((d: any) => ({
+    domain: d.domain,
+    count: d.count,
+    percentage: Math.min((d.count / (stats.topDomains[0]?.count || 1)) * 100, 100)
+  })) || [];
+
+  const topIps = stats?.topIps?.map((ip: any) => ({
+    ip: ip.ip,
+    count: ip.count,
+    percentage: Math.min((ip.count / (stats.topIps[0]?.count || 1)) * 100, 100)
+  })) || [];
+
+  const latestBlocks = stats?.latestEvents?.map((e: any) => ({
+    time: new Date(e.timestamp).toLocaleString(),
+    ip: e.ip_address,
+    domain: e.domain,
+    type: e.attack_type,
+    url: e.url
+  })) || [];
+
+  // Mock data for charts
+  const timeData = Array.from({ length: 24 }).map((_, i) => ({
+    time: `${String(i).padStart(2, '0')}:00`,
+    total: Math.floor(Math.random() * 500) + 100,
+    afterFilter: Math.floor(Math.random() * 450) + 50,
+  }));
+
+  const miniChartData = Array.from({ length: 10 }).map((_, i) => ({
+    time: `11:08:${i * 5}`,
+    value: Math.floor(Math.random() * 15) + 2,
+  }));
 
   return (
     <DashboardLayout>
@@ -229,7 +254,9 @@ export default function AdminWaf() {
                     </div>
                     <div className="flex-1 truncate mr-2 text-gray-600" title={d.domain}>{d.domain}</div>
                     <div className="w-24 mr-3">
-                      <Progress value={d.percentage} className="h-1.5 bg-gray-100" indicatorColor="bg-green-500" />
+                      <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-green-500 transition-all" style={{ width: `${d.percentage}%` }}></div>
+                      </div>
                     </div>
                     <div className="text-gray-500 w-6 text-right">{d.count}</div>
                   </div>
@@ -399,7 +426,9 @@ export default function AdminWaf() {
                       </div>
                       <div className="w-28 truncate text-gray-600">{ip.ip}</div>
                       <div className="flex-1 mx-2">
-                        <Progress value={ip.percentage} className="h-1.5 bg-gray-100" indicatorColor="bg-cyan-400" />
+                        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-cyan-400 transition-all" style={{ width: `${ip.percentage}%` }}></div>
+                        </div>
                       </div>
                       <div className="text-gray-500 w-8 text-right">{ip.count}</div>
                     </div>
@@ -422,7 +451,9 @@ export default function AdminWaf() {
                       </div>
                       <div className="w-36 truncate text-gray-600" title={page.page}>{page.page}</div>
                       <div className="flex-1 mx-2">
-                        <Progress value={page.percentage} className="h-1.5 bg-gray-100" indicatorColor="bg-emerald-500" />
+                        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${page.percentage}%` }}></div>
+                        </div>
                       </div>
                       <div className="text-gray-500 w-8 text-right">{page.count}</div>
                     </div>

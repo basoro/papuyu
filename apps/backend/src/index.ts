@@ -13,6 +13,7 @@ import systemRoutes from './routes/system.routes';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
 import { initSocket } from './services/queue.service';
+import { startWafLogWatcher } from './services/waf.service';
 
 const app = express();
 const server = http.createServer(app);
@@ -56,4 +57,7 @@ app.get('/health', (req, res) => {
 
 server.listen(config.port, () => {
   console.log(`Server running on port ${config.port}`);
+  
+  // Start background workers
+  startWafLogWatcher();
 });

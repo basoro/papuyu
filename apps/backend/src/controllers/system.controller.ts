@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import si from 'systeminformation';
 import { AuthRequest } from '../middleware/auth';
 import { execFileSync } from 'child_process';
+import db from '../db/database';
 
 export async function getSystemStats(req: AuthRequest, res: Response) {
   try {
@@ -152,5 +153,62 @@ export async function pruneDockerSystem(req: AuthRequest, res: Response) {
   } catch (error: any) {
     console.error('Docker prune error:', error);
     res.status(500).json({ error: 'Failed to prune Docker system' });
+  }
+}
+
+export async function getWafStats(req: AuthRequest, res: Response) {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString();
+
+    // 1. Latest Events
+    const latestEvents = db.prepare(`
+      SELECT * FROM waf_events 
+      ORDER BY timestamp DESC 
+      LIMIT 10
+    `).all();
+
+    // 2. Block type breakdown (today)
+    const blockTypes = db.prepare(`
+      SELECT attack_type as name, COUNT(*) as value 
+      FROM waf_events 
+      WHERE timestamp >= ? 
+      GROUP BY attack_type
+    `).all(todayStr);
+
+    // 3. Top IP addresses
+    const topIps = db.prepare(`
+      SELECT ip_address as ip, COUNT(*) as count 
+      FROM waf_events 
+      GROUP BY ip_address 
+      ORDER BY count DESC 
+      LIMIT 10
+    `).all();
+
+    // 4. Top Domains
+    const topDomains = db.prepare(`
+      SELECT domain, COUNT(*) as count 
+      FROM waf_events 
+      GROUP BY domain 
+      ORDER BY count DESC 
+      LIMIT 10
+    `).all();
+
+    // 5. Total counts
+    const totalBlocksToday = db.prepare(`
+      SELECT COUNT(*) as count FROM waf_events WHERE timestamp >= ?
+    `).get(todayStr) as { count: number };
+
+    res.json({
+      latestEvents,
+      blockTypes,
+      topIps,
+      topDomains,
+      totalBlocksToday: totalBlocksToday.count || 0
+    });
+  } catch (error: any) {
+    console.error('WAF stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch WAF stats' });
   }
 }
