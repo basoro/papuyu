@@ -104,7 +104,7 @@ export default function AdminWaf() {
       <div className="space-y-4 max-w-[1600px] mx-auto pb-10">
         
         {/* Header / Date Filter */}
-        <div className="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
+        <div className="flex justify-between items-center bg-card text-card-foreground p-2 rounded-lg border shadow-sm">
           <div className="flex space-x-1">
             {["Yesterday", "Today"].map(filter => (
               <Button 
@@ -112,13 +112,13 @@ export default function AdminWaf() {
                 variant={dateFilter === filter ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setDateFilter(filter)}
-                className={dateFilter === filter ? "bg-blue-500 hover:bg-blue-600 text-white" : "text-gray-500"}
+                className={dateFilter === filter ? "bg-blue-500 hover:bg-blue-600 text-white" : "text-muted-foreground hover:text-foreground"}
               >
                 {filter}
               </Button>
             ))}
             <div className="relative flex items-center">
-              <span className="text-sm text-gray-400 ml-4 px-2 border-l">Select Date 📅</span>
+              <span className="text-sm text-muted-foreground ml-4 px-2 border-l border-border">Select Date 📅</span>
             </div>
           </div>
           <div className="flex items-center text-blue-500 font-medium">
@@ -144,7 +144,7 @@ export default function AdminWaf() {
                   <div className="text-xs text-blue-500 flex items-center">
                     ↓ -66.65%
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">Yesterday: 297339</div>
+                  <div className="text-xs text-muted-foreground mt-1">Yesterday: 297339</div>
                 </CardContent>
               </Card>
               
@@ -154,12 +154,12 @@ export default function AdminWaf() {
                     <div className="w-1 h-4 bg-red-500 rounded"></div>
                     <span className="font-semibold text-sm">Malicious request</span>
                   </div>
-                  <div className="text-3xl font-bold mb-1">18</div>
+                  <div className="text-3xl font-bold mb-1">{totalBlocks}</div>
                   <div className="text-xs text-red-500 flex items-center">
                     ↓ -76.92%
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">Yesterday: 78</div>
-                  <ShieldAlert className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-gray-100 opacity-50" />
+                  <div className="text-xs text-muted-foreground mt-1">Yesterday: 78</div>
+                  <ShieldAlert className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-20" />
                 </CardContent>
               </Card>
             </div>
@@ -167,7 +167,7 @@ export default function AdminWaf() {
             {/* Mini Charts */}
             <Card className="shadow-sm">
               <CardHeader className="p-4 pb-0">
-                <CardTitle className="text-sm text-gray-500 flex items-center">
+                <CardTitle className="text-sm text-muted-foreground flex items-center">
                   <Activity className="w-4 h-4 mr-2" /> Real-time QPS: 2/s
                 </CardTitle>
               </CardHeader>
@@ -180,7 +180,7 @@ export default function AdminWaf() {
                         <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis dataKey="time" hide />
                     <YAxis hide domain={[0, 'dataMax + 5']} />
                     <Tooltip />
@@ -192,7 +192,7 @@ export default function AdminWaf() {
 
             <Card className="shadow-sm">
               <CardHeader className="p-4 pb-0">
-                <CardTitle className="text-sm text-gray-500 flex items-center">
+                <CardTitle className="text-sm text-muted-foreground flex items-center">
                   <Globe className="w-4 h-4 mr-2" /> Real-time traffic: 86.27 KB/s
                 </CardTitle>
               </CardHeader>
@@ -205,7 +205,7 @@ export default function AdminWaf() {
                         <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis dataKey="time" hide />
                     <YAxis hide domain={[0, 'dataMax + 5']} />
                     <Tooltip />
@@ -217,7 +217,7 @@ export default function AdminWaf() {
 
             <Card className="shadow-sm">
               <CardHeader className="p-4 pb-0">
-                <CardTitle className="text-sm text-gray-500 flex items-center">
+                <CardTitle className="text-sm text-muted-foreground flex items-center">
                   <HardDrive className="w-4 h-4 mr-2" /> Real-time origin response: 0ms
                 </CardTitle>
               </CardHeader>
@@ -230,7 +230,7 @@ export default function AdminWaf() {
                         <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis dataKey="time" hide />
                     <YAxis hide domain={[0, 'dataMax + 5']} />
                     <Tooltip />
@@ -242,7 +242,7 @@ export default function AdminWaf() {
 
             <Card className="shadow-sm">
               <CardHeader className="p-4 pb-2 border-b">
-                <CardTitle className="text-sm text-gray-600 flex items-center">
+                <CardTitle className="text-sm text-foreground flex items-center">
                   <ShieldAlert className="w-4 h-4 mr-2" /> Attacked domains TOP10
                 </CardTitle>
               </CardHeader>
@@ -252,13 +252,13 @@ export default function AdminWaf() {
                     <div className="w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center mr-3 flex-shrink-0">
                       {i + 1}
                     </div>
-                    <div className="flex-1 truncate mr-2 text-gray-600" title={d.domain}>{d.domain}</div>
+                    <div className="flex-1 truncate mr-2 text-foreground" title={d.domain}>{d.domain}</div>
                     <div className="w-24 mr-3">
-                      <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                         <div className="h-full bg-green-500 transition-all" style={{ width: `${d.percentage}%` }}></div>
                       </div>
                     </div>
-                    <div className="text-gray-500 w-6 text-right">{d.count}</div>
+                    <div className="text-muted-foreground w-6 text-right">{d.count}</div>
                   </div>
                 ))}
               </CardContent>
@@ -266,7 +266,7 @@ export default function AdminWaf() {
 
             <Card className="shadow-sm">
               <CardHeader className="p-4 pb-2 border-b">
-                <CardTitle className="text-sm text-gray-600 flex items-center">
+                <CardTitle className="text-sm text-foreground flex items-center">
                   <ShieldAlert className="w-4 h-4 mr-2" /> Block type
                 </CardTitle>
               </CardHeader>
@@ -289,13 +289,13 @@ export default function AdminWaf() {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-xs text-gray-500">Today's blocks</span>
-                    <span className="text-2xl font-bold">18</span>
+                    <span className="text-xs text-muted-foreground">Today's blocks</span>
+                    <span className="text-2xl font-bold">{totalBlocks}</span>
                   </div>
                 </div>
                 <div className="w-1/2 space-y-3 pl-4">
                   {pieData.map((d, i) => (
-                    <div key={i} className="flex items-center text-xs text-gray-600">
+                    <div key={i} className="flex items-center text-xs text-foreground">
                       <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: d.color }}></div>
                       <span className="truncate flex-1">{d.name}</span>
                       <span className="font-medium">{d.value}</span>
@@ -312,7 +312,7 @@ export default function AdminWaf() {
             {/* Main Traffic Chart */}
             <Card className="shadow-sm">
               <CardHeader className="p-4 pb-0 border-b flex flex-row items-center justify-between">
-                <CardTitle className="text-sm text-gray-600 flex items-center">
+                <CardTitle className="text-sm text-foreground flex items-center">
                   <Filter className="w-4 h-4 mr-2" /> Traffic filtering request chart
                 </CardTitle>
                 <Button variant="ghost" size="icon" className="h-6 w-6"><RefreshCw className="h-3 w-3" /></Button>
@@ -336,7 +336,7 @@ export default function AdminWaf() {
                         <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis dataKey="time" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
                     <YAxis tick={{fontSize: 10}} tickLine={false} axisLine={false} />
                     <Tooltip />
@@ -350,16 +350,16 @@ export default function AdminWaf() {
             {/* Map & Map Stats */}
             <Card className="shadow-sm">
               <CardHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
-                <CardTitle className="text-sm text-gray-600 flex items-center">
+                <CardTitle className="text-sm text-foreground flex items-center">
                   <Globe className="w-4 h-4 mr-2" /> Access/Block Map
                 </CardTitle>
                 <div className="flex items-center space-x-4">
-                  <div className="flex bg-gray-100 rounded p-0.5">
-                    <button className="px-3 py-1 text-xs bg-white shadow-sm rounded">3D</button>
-                    <button className="px-3 py-1 text-xs text-gray-500">2D</button>
+                  <div className="flex bg-muted rounded p-0.5">
+                    <button className="px-3 py-1 text-xs bg-background shadow-sm rounded">3D</button>
+                    <button className="px-3 py-1 text-xs text-muted-foreground">2D</button>
                   </div>
-                  <div className="flex bg-gray-100 rounded p-0.5">
-                    <button className="px-3 py-1 text-xs text-gray-500">Requests</button>
+                  <div className="flex bg-muted rounded p-0.5">
+                    <button className="px-3 py-1 text-xs text-muted-foreground">Requests</button>
                     <button className="px-3 py-1 text-xs bg-blue-500 text-white rounded">Blocks</button>
                   </div>
                   <a href="#" className="text-xs text-blue-500 hover:underline">Today's Block report &gt;&gt;</a>
@@ -367,18 +367,18 @@ export default function AdminWaf() {
               </CardHeader>
               <CardContent className="p-0 flex h-[350px]">
                 {/* Map Placeholder */}
-                <div className="w-2/3 border-r relative bg-[#f8fafc] flex items-center justify-center overflow-hidden">
+                <div className="w-2/3 border-r border-border relative bg-muted/20 flex items-center justify-center overflow-hidden">
                    {/* Abstract SVG Map Background */}
-                   <svg viewBox="0 0 800 400" className="w-full h-full opacity-30 text-gray-400 fill-current">
+                   <svg viewBox="0 0 800 400" className="w-full h-full opacity-30 text-muted-foreground fill-current">
                      <path d="M150,100 Q180,90 200,120 T250,150 T300,100 T350,140 T400,90 T450,130 T500,80 T550,120 T600,70 T650,110 T700,60 L700,300 L150,300 Z" />
                    </svg>
                    
                    {/* Fake Markers */}
-                   <div className="absolute top-1/3 left-1/2 w-6 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 border-2 border-white">2</div>
-                   <div className="absolute top-1/2 left-2/3 w-6 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 border-2 border-white">1</div>
-                   <div className="absolute top-2/3 left-3/4 w-6 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 border-2 border-white">1</div>
+                   <div className="absolute top-1/3 left-1/2 w-6 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 border-2 border-background">2</div>
+                   <div className="absolute top-1/2 left-2/3 w-6 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 border-2 border-background">1</div>
+                   <div className="absolute top-2/3 left-3/4 w-6 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 border-2 border-background">1</div>
                    
-                   <div className="absolute bottom-4 left-4 flex items-center text-xs text-gray-500 space-x-2">
+                   <div className="absolute bottom-4 left-4 flex items-center text-xs text-muted-foreground space-x-2">
                      <span>Low</span>
                      <div className="w-20 h-1 bg-gradient-to-r from-gray-300 to-green-500 rounded"></div>
                      <span>High</span>
@@ -389,7 +389,7 @@ export default function AdminWaf() {
                 <div className="w-1/3 p-4">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-gray-500 text-left border-b">
+                      <tr className="text-muted-foreground text-left border-b border-border">
                         <th className="pb-2 font-normal">Attack IP</th>
                         <th className="pb-2 font-normal">Attack times</th>
                         <th className="pb-2 font-normal">IP attribution</th>
@@ -397,7 +397,7 @@ export default function AdminWaf() {
                     </thead>
                     <tbody>
                       {mapStats.map((stat, i) => (
-                        <tr key={i} className="border-b border-gray-50 last:border-0">
+                        <tr key={i} className="border-b border-border last:border-0">
                           <td className="py-3 text-blue-500">{stat.ip}</td>
                           <td className="py-3">{stat.times}</td>
                           <td className="py-3">{stat.country}</td>
@@ -413,7 +413,7 @@ export default function AdminWaf() {
             <div className="grid grid-cols-2 gap-4">
               <Card className="shadow-sm">
                 <CardHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm text-gray-600 flex items-center">
+                  <CardTitle className="text-sm text-foreground flex items-center">
                     <Activity className="w-4 h-4 mr-2 text-orange-400" /> Traffic ranking TOP10
                   </CardTitle>
                   <a href="#" className="text-xs text-blue-500 hover:underline">More&gt;&gt;</a>
@@ -424,13 +424,13 @@ export default function AdminWaf() {
                       <div className={`w-5 h-5 rounded-full text-white flex items-center justify-center mr-3 flex-shrink-0 ${i < 3 ? 'bg-cyan-400' : 'bg-cyan-200'}`}>
                         {i + 1}
                       </div>
-                      <div className="w-28 truncate text-gray-600">{ip.ip}</div>
+                      <div className="w-28 truncate text-foreground">{ip.ip}</div>
                       <div className="flex-1 mx-2">
-                        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                           <div className="h-full bg-cyan-400 transition-all" style={{ width: `${ip.percentage}%` }}></div>
                         </div>
                       </div>
-                      <div className="text-gray-500 w-8 text-right">{ip.count}</div>
+                      <div className="text-muted-foreground w-8 text-right">{ip.count}</div>
                     </div>
                   ))}
                 </CardContent>
@@ -438,7 +438,7 @@ export default function AdminWaf() {
 
               <Card className="shadow-sm">
                 <CardHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm text-gray-600 flex items-center">
+                  <CardTitle className="text-sm text-foreground flex items-center">
                     <Activity className="w-4 h-4 mr-2 text-orange-400" /> Visited pages TOP10
                   </CardTitle>
                   <a href="#" className="text-xs text-blue-500 hover:underline">More&gt;&gt;</a>
@@ -449,13 +449,13 @@ export default function AdminWaf() {
                       <div className={`w-5 h-5 rounded-full text-white flex items-center justify-center mr-3 flex-shrink-0 ${i < 3 ? 'bg-emerald-500' : 'bg-emerald-300'}`}>
                         {i + 1}
                       </div>
-                      <div className="w-36 truncate text-gray-600" title={page.page}>{page.page}</div>
+                      <div className="w-36 truncate text-foreground" title={page.page}>{page.page}</div>
                       <div className="flex-1 mx-2">
-                        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                           <div className="h-full bg-emerald-500 transition-all" style={{ width: `${page.percentage}%` }}></div>
                         </div>
                       </div>
-                      <div className="text-gray-500 w-8 text-right">{page.count}</div>
+                      <div className="text-muted-foreground w-8 text-right">{page.count}</div>
                     </div>
                   ))}
                 </CardContent>
@@ -468,14 +468,14 @@ export default function AdminWaf() {
           <div className="col-span-12">
             <Card className="shadow-sm">
               <CardHeader className="p-4 pb-2 border-b">
-                <CardTitle className="text-sm text-gray-600 flex items-center">
+                <CardTitle className="text-sm text-foreground flex items-center">
                   <ShieldAlert className="w-4 h-4 mr-2" /> Latest block events
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr className="text-gray-500 text-left border-b">
+                  <thead className="bg-muted/50">
+                    <tr className="text-muted-foreground text-left border-b border-border">
                       <th className="p-4 font-normal">Time</th>
                       <th className="p-4 font-normal">IP address</th>
                       <th className="p-4 font-normal">Domain</th>
@@ -486,16 +486,16 @@ export default function AdminWaf() {
                   </thead>
                   <tbody>
                     {latestBlocks.map((block, i) => (
-                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50/50">
-                        <td className="p-4 text-gray-500">{block.time}</td>
+                      <tr key={i} className="border-b border-border hover:bg-muted/30">
+                        <td className="p-4 text-muted-foreground">{block.time}</td>
                         <td className="p-4">{block.ip}</td>
-                        <td className="p-4 text-gray-500">{block.domain}</td>
-                        <td className="p-4 text-gray-600">{block.type}</td>
-                        <td className="p-4 text-gray-500 truncate max-w-[200px]" title={block.url}>{block.url}</td>
+                        <td className="p-4 text-muted-foreground">{block.domain}</td>
+                        <td className="p-4 text-foreground">{block.type}</td>
+                        <td className="p-4 text-muted-foreground truncate max-w-[200px]" title={block.url}>{block.url}</td>
                         <td className="p-4 text-right space-x-2">
                           <button className="text-blue-500 hover:underline text-xs">Block IP</button>
                           <button className="text-blue-500 hover:underline text-xs">White URL</button>
-                          <button className="text-gray-400 hover:text-gray-600 text-xs">Details</button>
+                          <button className="text-muted-foreground hover:text-foreground text-xs">Details</button>
                         </td>
                       </tr>
                     ))}

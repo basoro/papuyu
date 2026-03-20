@@ -72,7 +72,7 @@ services:
     volumes:
       # Mount as a specific conf.d file instead of overriding the template
       - ./modsec-nginx.conf:/etc/nginx/conf.d/zzz-custom.conf
-      - ./modsecurity-override.conf:/etc/nginx/modsecurity.d/modsecurity-override.conf
+      - ./modsecurity-override.conf:/etc/nginx/templates/modsecurity.d/modsecurity-override.conf.template
       # Mount the log directory so the backend can read it
       - ./logs/modsec:/var/log/modsec
 
