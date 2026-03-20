@@ -48,12 +48,32 @@ const processNginxErrorLog = (line: string) => {
 
     // Extract basic fields using Regex
     const clientIpMatch = line.match(/client:\s*([^,]+)/);
+    const forwardedForMatch = line.match(/"([^"]+)"\s*"([^"]+)"$/); // Try to get X-Forwarded-For if it's logged at the end
     const uriMatch = line.match(/\[uri\s+"([^"]+)"\]/);
     const msgMatch = line.match(/\[msg\s+"([^"]+)"\]/);
     const hostMatch = line.match(/host:\s*"([^"]+)"/);
     const requestMatch = line.match(/request:\s*"([^"]+)"/);
 
-    const ipAddress = clientIpMatch ? clientIpMatch[1] : 'Unknown';
+    let ipAddress = clientIpMatch ? clientIpMatch[1] : 'Unknown';
+    
+    // Check if the log contains a forwarded IP (if Nginx logs it)
+    if (line.includes('X-Forwarded-For')) {
+        const xffMatch = line.match(/X-Forwarded-For: ([^,\]]+)/i);
+        if (xffMatch && xffMatch[1]) {
+            ipAddress = xffMatch[1].trim();
+        }
+    }
+    
+    // Fallback: If IP starts with 172. (Docker internal), try to find another IP in the log
+    if (ipAddress.startsWith('172.')) {
+        const allIps = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [];
+        for (const ip of allIps) {
+            if (!ip.startsWith('172.') && !ip.startsWith('127.') && !ip.startsWith('10.') && !ip.startsWith('192.168.')) {
+                ipAddress = ip;
+                break;
+            }
+        }
+    }
     let domain = hostMatch ? hostMatch[1] : 'Unknown';
     if (domain.includes(':')) domain = domain.split(':')[0]; // Remove port
     
