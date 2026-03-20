@@ -16,21 +16,6 @@ import { useAuth } from "@/context/AuthContext";
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.rshd.my.id';
 
-const topPages = [
-  { page: '/service-worker.js', count: 2021, percentage: 100 },
-  { page: '/manifest.json', count: 2003, percentage: 95 },
-  { page: '/admin/rawat_inap...', count: 1640, percentage: 80 },
-  { page: '/admin/dashboard', count: 557, percentage: 30 },
-  { page: '/themes/admin...', count: 454, percentage: 25 },
-];
-
-const mapStats = [
-  { ip: '103.253.27.24', times: 14, country: 'Singapore' },
-  { ip: '207.180.243.111', times: 2, country: 'Germany' },
-  { ip: '142.93.211.25', times: 1, country: 'India' },
-  { ip: '114.122.208.223', times: 1, country: 'Indonesia' },
-];
-
 export default function AdminWaf() {
   const [dateFilter, setDateFilter] = useState("Today");
   const [stats, setStats] = useState<any>(null);
@@ -79,6 +64,12 @@ export default function AdminWaf() {
     ip: ip.ip,
     count: ip.count,
     percentage: Math.min((ip.count / (stats.topIps[0]?.count || 1)) * 100, 100)
+  })) || [];
+
+  const topUrls = stats?.topUrls?.map((u: any) => ({
+    page: u.url,
+    count: u.count,
+    percentage: Math.min((u.count / (stats.topUrls[0]?.count || 1)) * 100, 100)
   })) || [];
 
   const latestBlocks = stats?.latestEvents?.map((e: any) => ({
@@ -140,112 +131,23 @@ export default function AdminWaf() {
           <div className="col-span-12 lg:col-span-3 space-y-4">
             
             {/* Overview Stats */}
-            <div className="grid grid-cols-2 gap-2">
-              <Card className="shadow-sm border-t-4 border-t-blue-500">
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2 text-blue-500 mb-2">
-                    <div className="w-1 h-4 bg-blue-500 rounded"></div>
-                    <span className="font-semibold text-sm">Request</span>
-                  </div>
-                  <div className="text-3xl font-bold mb-1">99,164</div>
-                  <div className="text-xs text-blue-500 flex items-center">
-                    ↓ -66.65%
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">Yesterday: 297339</div>
-                </CardContent>
-              </Card>
-              
-              <Card className="shadow-sm border-t-4 border-t-red-500 relative overflow-hidden">
-                <CardContent className="p-4">
+            <div>
+              <Card className="shadow-sm border-t-4 border-t-red-500 relative overflow-hidden h-full">
+                <CardContent className="p-4 flex flex-col justify-center h-full">
                   <div className="flex items-center space-x-2 text-red-500 mb-2">
                     <div className="w-1 h-4 bg-red-500 rounded"></div>
-                    <span className="font-semibold text-sm">Malicious request</span>
+                    <span className="font-semibold text-sm">Malicious request / Total block events</span>
                   </div>
-                  <div className="text-3xl font-bold mb-1">{totalBlocks}</div>
-                  <div className="text-xs text-red-500 flex items-center">
-                    ↓ -76.92%
+                  <div className="text-4xl font-bold mb-1">{totalBlocks}</div>
+                  <div className="text-xs text-muted-foreground mt-2 flex items-center">
+                    Data today
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">Yesterday: 78</div>
-                  <ShieldAlert className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-muted-foreground opacity-20" />
+                  <ShieldAlert className="absolute right-[-10px] bottom-[-10px] w-28 h-28 text-muted-foreground opacity-10" />
                 </CardContent>
               </Card>
             </div>
 
             {/* Mini Charts */}
-            <Card className="shadow-sm">
-              <CardHeader className="p-4 pb-0">
-                <CardTitle className="text-sm text-muted-foreground flex items-center">
-                  <Activity className="w-4 h-4 mr-2" /> Real-time QPS: 2/s
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-2 h-[120px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={miniChartData}>
-                    <defs>
-                      <linearGradient id="colorGreen" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="time" hide />
-                    <YAxis hide domain={[0, 'dataMax + 5']} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#colorGreen)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-              <CardHeader className="p-4 pb-0">
-                <CardTitle className="text-sm text-muted-foreground flex items-center">
-                  <Globe className="w-4 h-4 mr-2" /> Real-time traffic: 86.27 KB/s
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-2 h-[120px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={miniChartData}>
-                    <defs>
-                      <linearGradient id="colorGreen" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="time" hide />
-                    <YAxis hide domain={[0, 'dataMax + 5']} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#colorGreen)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-              <CardHeader className="p-4 pb-0">
-                <CardTitle className="text-sm text-muted-foreground flex items-center">
-                  <HardDrive className="w-4 h-4 mr-2" /> Real-time origin response: 0ms
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-2 h-[120px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={miniChartData}>
-                    <defs>
-                      <linearGradient id="colorGreen" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="time" hide />
-                    <YAxis hide domain={[0, 'dataMax + 5']} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#colorGreen)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
 
             <Card className="shadow-sm">
               <CardHeader className="p-4 pb-2 border-b">
@@ -354,68 +256,6 @@ export default function AdminWaf() {
               </CardContent>
             </Card>
 
-            {/* Map & Map Stats */}
-            <Card className="shadow-sm">
-              <CardHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
-                <CardTitle className="text-sm text-foreground flex items-center">
-                  <Globe className="w-4 h-4 mr-2" /> Access/Block Map
-                </CardTitle>
-                <div className="flex items-center space-x-4">
-                  <div className="flex bg-muted rounded p-0.5">
-                    <button className="px-3 py-1 text-xs bg-background shadow-sm rounded">3D</button>
-                    <button className="px-3 py-1 text-xs text-muted-foreground">2D</button>
-                  </div>
-                  <div className="flex bg-muted rounded p-0.5">
-                    <button className="px-3 py-1 text-xs text-muted-foreground">Requests</button>
-                    <button className="px-3 py-1 text-xs bg-blue-500 text-white rounded">Blocks</button>
-                  </div>
-                  <a href="#" className="text-xs text-blue-500 hover:underline">Today's Block report &gt;&gt;</a>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 flex h-[350px]">
-                {/* Map Placeholder */}
-                <div className="w-2/3 border-r border-border relative bg-muted/20 flex items-center justify-center overflow-hidden">
-                   {/* Abstract SVG Map Background */}
-                   <svg viewBox="0 0 800 400" className="w-full h-full opacity-30 text-muted-foreground fill-current">
-                     <path d="M150,100 Q180,90 200,120 T250,150 T300,100 T350,140 T400,90 T450,130 T500,80 T550,120 T600,70 T650,110 T700,60 L700,300 L150,300 Z" />
-                   </svg>
-                   
-                   {/* Fake Markers */}
-                   <div className="absolute top-1/3 left-1/2 w-6 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 border-2 border-background">2</div>
-                   <div className="absolute top-1/2 left-2/3 w-6 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 border-2 border-background">1</div>
-                   <div className="absolute top-2/3 left-3/4 w-6 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 border-2 border-background">1</div>
-                   
-                   <div className="absolute bottom-4 left-4 flex items-center text-xs text-muted-foreground space-x-2">
-                     <span>Low</span>
-                     <div className="w-20 h-1 bg-gradient-to-r from-gray-300 to-green-500 rounded"></div>
-                     <span>High</span>
-                   </div>
-                </div>
-                
-                {/* Map Stats Table */}
-                <div className="w-1/3 p-4">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-muted-foreground text-left border-b border-border">
-                        <th className="pb-2 font-normal">Attack IP</th>
-                        <th className="pb-2 font-normal">Attack times</th>
-                        <th className="pb-2 font-normal">IP attribution</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mapStats.map((stat, i) => (
-                        <tr key={i} className="border-b border-border last:border-0">
-                          <td className="py-3 text-blue-500">{stat.ip}</td>
-                          <td className="py-3">{stat.times}</td>
-                          <td className="py-3">{stat.country}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Top 10 IP & Pages */}
             <div className="grid grid-cols-2 gap-4">
               <Card className="shadow-sm">
@@ -451,7 +291,7 @@ export default function AdminWaf() {
                   <a href="#" className="text-xs text-blue-500 hover:underline">More&gt;&gt;</a>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3">
-                  {topPages.map((page, i) => (
+                  {topUrls.map((page: any, i: number) => (
                     <div key={i} className="flex items-center text-xs">
                       <div className={`w-5 h-5 rounded-full text-white flex items-center justify-center mr-3 flex-shrink-0 ${i < 3 ? 'bg-emerald-500' : 'bg-emerald-300'}`}>
                         {i + 1}

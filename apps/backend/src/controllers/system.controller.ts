@@ -205,7 +205,16 @@ export async function getWafStats(req: AuthRequest, res: Response) {
     `).get(todayStr) as { count: number };
     console.log('[WAF-API] Total Blocks Today:', totalBlocksToday.count);
 
-    // 6. Time series data (last 24 hours, grouped by hour)
+    // 6. Top Visited Pages (URLs)
+    const topUrls = db.prepare(`
+      SELECT url, COUNT(*) as count 
+      FROM waf_events 
+      GROUP BY url 
+      ORDER BY count DESC 
+      LIMIT 10
+    `).all();
+
+    // 7. Time series data (last 24 hours, grouped by hour)
     const timeSeriesData = db.prepare(`
       SELECT 
         strftime('%H:00', timestamp) as time,
@@ -223,6 +232,7 @@ export async function getWafStats(req: AuthRequest, res: Response) {
       blockTypes,
       topIps,
       topDomains,
+      topUrls,
       totalBlocksToday: totalBlocksToday.count || 0,
       timeSeriesData
     });
