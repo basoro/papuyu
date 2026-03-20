@@ -176,31 +176,33 @@ export default function AdminWaf() {
                     <RefreshCw className="h-3 w-3" />
                   </Button>
                 </CardHeader>
-                <CardContent className="p-4 flex-1">
+                <CardContent className="p-4 flex-1 flex flex-col">
                   <div className="flex justify-center space-x-6 mb-4 text-xs">
                     <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>Total requests</div>
                     <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-blue-400 mr-2"></div>After filtering</div>
                   </div>
-                  <ResponsiveContainer width="100%" height="100%" minHeight={150}>
-                    <AreaChart data={timeData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorFilter" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="time" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                      <YAxis tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                      <Tooltip />
-                      <Area type="monotone" dataKey="total" stroke="#22c55e" strokeWidth={1.5} fillOpacity={1} fill="url(#colorTotal)" />
-                      <Area type="monotone" dataKey="afterFilter" stroke="#3b82f6" strokeWidth={1.5} fillOpacity={1} fill="url(#colorFilter)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <div className="flex-1 w-full min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={timeData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.1}/>
+                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorFilter" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                        <XAxis dataKey="time" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
+                        <YAxis tick={{fontSize: 10}} tickLine={false} axisLine={false} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="total" stroke="#22c55e" strokeWidth={1.5} fillOpacity={1} fill="url(#colorTotal)" />
+                        <Area type="monotone" dataKey="afterFilter" stroke="#3b82f6" strokeWidth={1.5} fillOpacity={1} fill="url(#colorFilter)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
             </div>
