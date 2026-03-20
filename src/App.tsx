@@ -14,6 +14,7 @@ import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import AdminDocker from "./pages/AdminDocker";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ function AppRoutes() {
       <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
       <Route path="/deployments" element={<ProtectedRoute><Deployments /></ProtectedRoute>} />
       <Route path="/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
+      <Route path="/admin/docker" element={<AdminRoute><AdminDocker /></AdminRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

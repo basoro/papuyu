@@ -6,6 +6,7 @@ import {
   Settings,
   LogOut,
   Fish,
+  Box,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -31,6 +32,7 @@ const mainItems = [
 
 const adminItems = [
   { title: "Users", url: "/users", icon: Users },
+  { title: "Docker", url: "/admin/docker", icon: Box },
 ];
 
 const bottomItems = [
