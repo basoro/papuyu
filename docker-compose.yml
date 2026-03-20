@@ -78,9 +78,6 @@ services:
     volumes:
       # Mount as a specific conf.d file instead of overriding the template
       - ./modsec-nginx.conf:/etc/nginx/conf.d/zzz-custom.conf
-      # For older CRS versions, the audit engine can't always be overridden by env vars easily
-      # So we mount our file as a brand new conf file at the end of the chain
-      - ./modsecurity-override.conf:/etc/nginx/modsecurity.d/z-override.conf
       # Mount the log directory so the backend can read it
       - ./logs/modsec:/var/log/modsec
 
