@@ -56,7 +56,7 @@ export default function ProjectDetail() {
   };
 
   // backend logic canonicalId: raw.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50)
-  const safeProjectId = project.id.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50);
+  const safeProjectId = project.id.replace(/_/g, '-');
   const serverIp = import.meta.env.VITE_SERVER_IP;
   // If VITE_BASE_DOMAIN is set, use it. Otherwise, fallback to nip.io IP or localhost.
   const envDomain = import.meta.env.VITE_BASE_DOMAIN;
