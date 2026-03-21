@@ -123,6 +123,9 @@ export function deleteProject(req: AuthRequest, res: Response) {
   }
 
   try {
+    // We need to use canonicalId for cleanup because container names use canonicalId
+    const safeProjectId = id.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50);
+    
     // Cleanup Docker resources
     if (project.project_type === 'compose') {
       const buildDir = path.join(BUILD_DIR, id);
@@ -133,8 +136,8 @@ export function deleteProject(req: AuthRequest, res: Response) {
       }
     } else {
       try {
-        removeContainer(`papuyu-${id}`);
-        removeImage(id);
+        removeContainer(`papuyu-${safeProjectId}`);
+        removeImage(id); // removeImage internally uses canonicalId
       } catch (e) {
          console.warn(`Failed to remove container/image for ${id}`, e);
       }
