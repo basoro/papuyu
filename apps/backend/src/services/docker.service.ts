@@ -122,12 +122,22 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
     '--label', 'traefik.enable=true',
     '--label', `traefik.http.routers.papuyu-${safeProjectId}.rule=Host(\`${host}\`)`,
     '--label', `traefik.http.routers.papuyu-${safeProjectId}.service=papuyu-${safeProjectId}`,
-    '--label', `traefik.http.routers.papuyu-${safeProjectId}.entrypoints=websecure`,
-    '--label', `traefik.http.routers.papuyu-${safeProjectId}.tls=true`,
-    '--label', `traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=myresolver`,
     '--label', `traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}`,
     '--label', 'traefik.docker.network=papuyu-network'
   ];
+
+  // Optional HTTPS configurations based on global env
+  if (process.env.FORCE_HTTPS === 'true') {
+    labelArgs.push(
+      '--label', `traefik.http.routers.papuyu-${safeProjectId}.entrypoints=websecure`,
+      '--label', `traefik.http.routers.papuyu-${safeProjectId}.tls=true`
+    );
+    if (process.env.TRAEFIK_CERTRESOLVER) {
+      labelArgs.push('--label', `traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=${process.env.TRAEFIK_CERTRESOLVER}`);
+    }
+  } else {
+    labelArgs.push('--label', `traefik.http.routers.papuyu-${safeProjectId}.entrypoints=${process.env.TRAEFIK_ENTRYPOINT || 'web'}`);
+  }
 
   if (wafEnabled) {
     labelArgs.push(
@@ -389,6 +399,18 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
       - "traefik.http.routers.papuyu-${safeProjectId}.middlewares=waf-${safeProjectId}"`;
       }
 
+      let tlsLabels = '';
+      if (process.env.FORCE_HTTPS === 'true') {
+        tlsLabels = `
+      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=websecure"
+      - "traefik.http.routers.papuyu-${safeProjectId}.tls=true"`;
+        if (process.env.TRAEFIK_CERTRESOLVER) {
+          tlsLabels += `\n      - "traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=${process.env.TRAEFIK_CERTRESOLVER}"`;
+        }
+      } else {
+        tlsLabels = `\n      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=${process.env.TRAEFIK_ENTRYPOINT || 'web'}"`;
+      }
+
       const overrideContent = `
 version: '3.8'
 services:
@@ -399,11 +421,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.papuyu-${safeProjectId}.rule=Host(\`${host}\`)"
       - "traefik.http.routers.papuyu-${safeProjectId}.service=papuyu-${safeProjectId}"
-      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=websecure"
-      - "traefik.http.routers.papuyu-${safeProjectId}.tls=true"
-      - "traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=myresolver"
       - "traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}"
-      - "traefik.docker.network=papuyu-network"${wafLabels}
+      - "traefik.docker.network=papuyu-network"${tlsLabels}${wafLabels}
 
 networks:
   papuyu-network:

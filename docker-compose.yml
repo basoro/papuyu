@@ -19,6 +19,7 @@ services:
       - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
       - VITE_BASE_DOMAIN=${DOMAIN:-}
       - VITE_SERVER_IP=${SERVER_IP:-localhost}
+      - VITE_FORCE_HTTPS=${FORCE_HTTPS:-false}
     networks:
       - papuyu-network
 
