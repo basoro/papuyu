@@ -16,9 +16,9 @@ services:
       - backend
     environment:
       - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
-      - VITE_BASE_DOMAIN=${DOMAIN:-}
+      - VITE_BASE_DOMAIN=${DOMAIN:-${SERVER_IP:-localhost}}
       - VITE_SERVER_IP=${SERVER_IP:-localhost}
-      - VITE_FORCE_HTTPS=${FORCE_HTTPS:-false}
+      - VITE_FORCE_HTTPS=${TRAEFIK_HTTPS_ENABLED:-false}
     networks:
       - papuyu-network
 
