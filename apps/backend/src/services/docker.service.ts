@@ -130,6 +130,7 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
   if (process.env.TRAEFIK_HTTPS_ENABLED === 'true') {
     labelArgs.push(
       '--label', `traefik.http.routers.papuyu-${safeProjectId}.entrypoints=web,websecure`,
+      '--label', `traefik.http.routers.papuyu-${safeProjectId}.tls=true`,
       '--label', `traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=myresolver`
     );
   } else {
@@ -400,6 +401,7 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
       if (process.env.TRAEFIK_HTTPS_ENABLED === 'true') {
         tlsLabels = `
       - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=web,websecure"
+      - "traefik.http.routers.papuyu-${safeProjectId}.tls=true"
       - "traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=myresolver"`;
       } else {
         tlsLabels = `\n      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=web"`;
