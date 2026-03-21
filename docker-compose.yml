@@ -94,15 +94,16 @@ services:
 
   traefik:
     image: traefik:v2.10
+    container_name: papuyu-traefik
+    restart: unless-stopped
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.web.forwardedHeaders.insecure=true"
-      # Conditional HTTP to HTTPS redirection (only active if FORCE_HTTPS=true in .env)
-      - "--entrypoints.web.http.redirections.entryPoint.to=${FORCE_HTTPS_TO:-}"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=${FORCE_HTTPS_SCHEME:-}"
+      - "--entrypoints.web.http.redirections.entryPoint.to=${FORCE_HTTPS_TO:-web}"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=${FORCE_HTTPS_SCHEME:-http}"
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.websecure.forwardedHeaders.insecure=true"
       - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
