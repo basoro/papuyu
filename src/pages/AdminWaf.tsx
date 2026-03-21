@@ -14,7 +14,7 @@ import {
 import { ShieldAlert, Activity, Globe, HardDrive, Filter, Clock, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://103.187.146.74:4000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function AdminWaf() {
   const [dateFilter, setDateFilter] = useState("Today");

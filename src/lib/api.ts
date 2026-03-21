@@ -1,4 +1,4 @@
-export const API_URL = "http://103.187.146.74:4000";
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export async function apiRequest(endpoint: string, method: string = "GET", body?: any) {
   const token = localStorage.getItem("token");
