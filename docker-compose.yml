@@ -48,7 +48,7 @@ services:
 
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`${DOMAIN:-${SERVER_IP:-localhost}}`) && PathPrefix(`/api`)" 
+      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-${SERVER_IP:-localhost}}`)" 
       - "traefik.http.services.backend.loadbalancer.server.port=4000"
       - "traefik.http.routers.backend.entrypoints=web,websecure"
     networks:
