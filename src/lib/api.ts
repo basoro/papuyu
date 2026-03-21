@@ -1,4 +1,4 @@
-export const API_URL = "https://api.rshd.my.id";
+export const API_URL = "http://103.187.146.74:4000";
 
 export async function apiRequest(endpoint: string, method: string = "GET", body?: any) {
   const token = localStorage.getItem("token");
