@@ -25,10 +25,11 @@ export async function register(req: Request, res: Response) {
 
     res.status(201).json({ token, user });
   } catch (err: any) {
+    console.error('Registration error:', err); // Log the actual error
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(400).json({ error: 'Email already exists' });
     }
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error: ' + err.message });
   }
 }
 
