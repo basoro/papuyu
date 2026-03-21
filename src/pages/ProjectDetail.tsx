@@ -57,7 +57,9 @@ export default function ProjectDetail() {
 
   const safeProjectId = project.id.toLowerCase().replace(/[^a-z0-9-]/g, '');
   const serverIp = import.meta.env.VITE_SERVER_IP;
-  const baseDomain = import.meta.env.VITE_BASE_DOMAIN || (serverIp ? `${serverIp}.nip.io` : 'localhost');
+  // If VITE_BASE_DOMAIN is set, use it. Otherwise, fallback to nip.io IP or localhost.
+  const envDomain = import.meta.env.VITE_BASE_DOMAIN;
+  const baseDomain = envDomain && envDomain !== 'localhost' && envDomain !== serverIp ? envDomain : (serverIp ? `${serverIp}.nip.io` : 'localhost');
   const protocol = import.meta.env.VITE_FORCE_HTTPS === 'true' ? 'https' : 'http';
   
   const publicUrl = `${protocol}://${project.subdomain || safeProjectId}.${baseDomain}`;
