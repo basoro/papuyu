@@ -202,7 +202,7 @@ export default function Projects() {
                 <Label className="text-xs text-muted-foreground">Subdomain (Optional)</Label>
                 <div className="flex items-center gap-2">
                     <Input placeholder="subdomain" value={form.subdomain} onChange={e => setForm({ ...form, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} className="bg-background font-mono text-sm" />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">.rshd.my.id</span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">.103.187.146.74.nip.io</span>
                 </div>
               </div>
               <div className="space-y-1.5">

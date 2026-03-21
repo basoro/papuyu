@@ -9,5 +9,5 @@ export const config = {
   dbPath: process.env.DB_PATH || './data.db',
   redisHost: process.env.REDIS_HOST || '127.0.0.1',
   redisPort: parseInt(process.env.REDIS_PORT || '6379'),
-  domain: process.env.DOMAIN || '103.187.146.74', // Used for Traefik routing
+  domain: process.env.DOMAIN || '103.187.146.74.nip.io', // Used for Traefik routing
 };
