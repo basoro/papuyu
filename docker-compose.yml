@@ -11,6 +11,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-${SERVER_IP:-localhost}}`)"
       - "traefik.http.routers.frontend.entrypoints=${TRAEFIK_ENTRYPOINT:-web}"
+      - "traefik.http.routers.frontend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-}"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
     depends_on:
       - backend
@@ -51,6 +52,7 @@ services:
       - "traefik.http.routers.backend.rule=Host(`${DOMAIN:-${SERVER_IP:-localhost}}`) && PathPrefix(`/api`)" 
       - "traefik.http.services.backend.loadbalancer.server.port=4000"
       - "traefik.http.routers.backend.entrypoints=${TRAEFIK_ENTRYPOINT:-web}"
+      - "traefik.http.routers.backend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-}"
     networks:
       - papuyu-network
 
@@ -100,6 +102,8 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.web.forwardedHeaders.insecure=true"
+      - "--entrypoints.web.http.redirections.entryPoint.to=${FORCE_HTTPS_TO:-web}"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=${FORCE_HTTPS_SCHEME:-http}"
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.websecure.forwardedHeaders.insecure=true"
       - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
