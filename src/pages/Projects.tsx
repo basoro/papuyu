@@ -18,7 +18,8 @@ export default function Projects() {
   const [loadingEnv, setLoadingEnv] = useState(false);
   const { toast } = useToast();
 
-  const baseDomain = import.meta.env.VITE_BASE_DOMAIN || '103.187.146.74.nip.io';
+  const serverIp = import.meta.env.VITE_SERVER_IP;
+  const baseDomain = import.meta.env.VITE_BASE_DOMAIN || (serverIp ? `${serverIp}.nip.io` : 'localhost');
   
   const [form, setForm] = useState({
     name: "",

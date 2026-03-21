@@ -16,7 +16,9 @@ services:
     depends_on:
       - backend
     environment:
-      - VITE_API_URL=http://103.187.146.74:4000
+      - VITE_API_URL=${VITE_API_URL:-http://103.187.146.74:4000}
+      - VITE_BASE_DOMAIN=${DOMAIN:-}
+      - VITE_SERVER_IP=${SERVER_IP:-103.187.146.74}
     networks:
       - papuyu-network
 

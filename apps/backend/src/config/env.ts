@@ -20,5 +20,5 @@ export const config = {
   
   // Use nip.io as the ultimate fallback if no domain is provided, 
   // but prioritize reading from the server's environment variable.
-  domain: process.env.DOMAIN || '103.187.146.74.nip.io', 
+  domain: process.env.DOMAIN || (process.env.SERVER_IP ? `${process.env.SERVER_IP}.nip.io` : 'localhost'), 
 };
