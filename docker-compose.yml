@@ -92,7 +92,6 @@ services:
 
   traefik:
     image: traefik:v2.10
-    container_name: papuyu-traefik
     restart: unless-stopped
     command:
       - "--api.insecure=true"
