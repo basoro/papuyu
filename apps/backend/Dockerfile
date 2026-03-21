@@ -7,15 +7,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install ALL dependencies (including devDependencies)
-# Force ignoring cache for this layer and run npm ci if package-lock is present, or install
-RUN npm install typescript copyfiles -g
-RUN npm install
+RUN npm install --include=dev
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build the application using npx to ensure local binaries are used
+RUN npx tsc && npx copyfiles -u 1 "src/**/*.sql" dist
 
 # Stage 2: Production image
 FROM node:20-alpine
