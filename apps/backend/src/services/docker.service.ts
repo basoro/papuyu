@@ -127,16 +127,13 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
   ];
 
   // Optional HTTPS configurations based on global env
-  if (process.env.FORCE_HTTPS === 'true') {
+  if (process.env.TRAEFIK_HTTPS_ENABLED === 'true') {
     labelArgs.push(
-      '--label', `traefik.http.routers.papuyu-${safeProjectId}.entrypoints=websecure`,
-      '--label', `traefik.http.routers.papuyu-${safeProjectId}.tls=true`
+      '--label', `traefik.http.routers.papuyu-${safeProjectId}.entrypoints=web,websecure`,
+      '--label', `traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=myresolver`
     );
-    if (process.env.TRAEFIK_CERTRESOLVER) {
-      labelArgs.push('--label', `traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=${process.env.TRAEFIK_CERTRESOLVER}`);
-    }
   } else {
-    labelArgs.push('--label', `traefik.http.routers.papuyu-${safeProjectId}.entrypoints=${process.env.TRAEFIK_ENTRYPOINT || 'web'}`);
+    labelArgs.push('--label', `traefik.http.routers.papuyu-${safeProjectId}.entrypoints=web`);
   }
 
   if (wafEnabled) {
@@ -400,15 +397,12 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
       }
 
       let tlsLabels = '';
-      if (process.env.FORCE_HTTPS === 'true') {
+      if (process.env.TRAEFIK_HTTPS_ENABLED === 'true') {
         tlsLabels = `
-      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=websecure"
-      - "traefik.http.routers.papuyu-${safeProjectId}.tls=true"`;
-        if (process.env.TRAEFIK_CERTRESOLVER) {
-          tlsLabels += `\n      - "traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=${process.env.TRAEFIK_CERTRESOLVER}"`;
-        }
+      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=web,websecure"
+      - "traefik.http.routers.papuyu-${safeProjectId}.tls.certresolver=myresolver"`;
       } else {
-        tlsLabels = `\n      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=${process.env.TRAEFIK_ENTRYPOINT || 'web'}"`;
+        tlsLabels = `\n      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=web"`;
       }
 
       const overrideContent = `
