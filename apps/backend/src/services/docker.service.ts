@@ -110,7 +110,8 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
     await execStream('docker', ['rm', '-f', containerName], {}, onLog); 
   } catch {}
 
-  // Host rule for Traefik using nip.io
+  // Host rule for Traefik 
+  // Uses config.domain which defaults to nip.io IP fallback or the actual domain from .env
   const domain = config.domain;
   if (subdomain) {
     validateSubdomain(subdomain);
@@ -375,7 +376,8 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
       if (subdomain) {
         validateSubdomain(subdomain);
       }
-      // Host rule for Traefik using nip.io
+      // Host rule for Traefik 
+      // Uses config.domain which defaults to nip.io IP fallback or the actual domain from .env
       const domain = config.domain;
       const host = subdomain ? `${subdomain}.${domain}` : `${safeProjectId}.${domain}`;
       

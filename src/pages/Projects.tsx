@@ -17,6 +17,8 @@ export default function Projects() {
   const [loading, setLoading] = useState(false);
   const [loadingEnv, setLoadingEnv] = useState(false);
   const { toast } = useToast();
+
+  const baseDomain = import.meta.env.VITE_BASE_DOMAIN || '103.187.146.74.nip.io';
   
   const [form, setForm] = useState({
     name: "",
@@ -202,7 +204,7 @@ export default function Projects() {
                 <Label className="text-xs text-muted-foreground">Subdomain (Optional)</Label>
                 <div className="flex items-center gap-2">
                     <Input placeholder="subdomain" value={form.subdomain} onChange={e => setForm({ ...form, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} className="bg-background font-mono text-sm" />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">.103.187.146.74.nip.io</span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">.{baseDomain}</span>
                 </div>
               </div>
               <div className="space-y-1.5">
