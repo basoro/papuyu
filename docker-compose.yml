@@ -47,6 +47,7 @@ services:
       - REDIS_PORT=6379
       - DOMAIN=${DOMAIN:-}
       - SERVER_IP=${SERVER_IP:-}
+      - TRAEFIK_HTTPS_ENABLED=${TRAEFIK_HTTPS_ENABLED:-false}      
     dns:
       - 8.8.8.8
       - 1.1.1.1
