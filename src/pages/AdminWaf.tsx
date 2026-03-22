@@ -11,14 +11,18 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell
 } from "recharts";
-import { ShieldAlert, Activity, Globe, HardDrive, Filter, Clock, RefreshCw } from "lucide-react";
+import { ShieldAlert, Activity, Globe, HardDrive, Filter, Clock, RefreshCw, CalendarIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function AdminWaf() {
   const [dateFilter, setDateFilter] = useState("Today");
-  const [dateRange, setDateRange] = useState<{ start: string; end: string } | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { token } = useAuth();
@@ -31,9 +35,12 @@ export default function AdminWaf() {
       const params = new URLSearchParams();
       params.append('dateFilter', dateFilter);
       
-      if (dateFilter === 'Select Date' && dateRange) {
-        params.append('startDate', dateRange.start);
-        params.append('endDate', dateRange.end);
+      if (dateFilter === 'Select Date' && dateRange?.from && dateRange?.to) {
+        // Add 1 day to the end date to include the full end day in ISO string formatting if timezone causes offset
+        const startStr = format(dateRange.from, 'yyyy-MM-dd');
+        const endStr = format(dateRange.to, 'yyyy-MM-dd');
+        params.append('startDate', startStr);
+        params.append('endDate', endStr);
       }
 
       console.log('[AdminWaf] Fetching stats from:', `${API_URL}/system/waf/stats?${params.toString()}`);
@@ -136,31 +143,43 @@ export default function AdminWaf() {
               </Button>
             ))}
             <div className="relative flex items-center group">
-              <Button
-                variant={dateFilter === "Select Date" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setDateFilter("Select Date")}
-                className={`ml-4 ${dateFilter === "Select Date" ? "bg-blue-500 hover:bg-blue-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Select Date 📅
-              </Button>
-              {dateFilter === "Select Date" && (
-                <div className="absolute top-full left-4 mt-2 bg-card border border-border shadow-md p-2 rounded-md z-10 flex gap-2">
-                  <input 
-                    type="date" 
-                    className="bg-background text-foreground text-sm border border-border rounded px-2 py-1"
-                    onChange={(e) => setDateRange(prev => ({ start: e.target.value, end: prev?.end || e.target.value }))}
-                    value={dateRange?.start || ''}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={dateFilter === "Select Date" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setDateFilter("Select Date")}
+                    className={`ml-4 ${dateFilter === "Select Date" ? "bg-blue-500 hover:bg-blue-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "LLL dd, y")} -{" "}
+                          {format(dateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Select Date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={(range) => {
+                      setDateRange(range);
+                      setDateFilter("Select Date");
+                    }}
+                    numberOfMonths={2}
                   />
-                  <span className="text-muted-foreground self-center">-</span>
-                  <input 
-                    type="date" 
-                    className="bg-background text-foreground text-sm border border-border rounded px-2 py-1"
-                    onChange={(e) => setDateRange(prev => ({ start: prev?.start || e.target.value, end: e.target.value }))}
-                    value={dateRange?.end || ''}
-                  />
-                </div>
-              )}
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           <div className="flex items-center text-blue-500 font-medium">
