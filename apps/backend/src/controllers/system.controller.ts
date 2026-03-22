@@ -158,83 +158,101 @@ export async function pruneDockerSystem(req: AuthRequest, res: Response) {
 
 export async function getWafStats(req: AuthRequest, res: Response) {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString();
+    const { dateFilter, startDate, endDate } = req.query;
     
-    console.log('[WAF-API] Fetching WAF stats for date >=', todayStr);
+    // Determine date range based on filter
+    let startQueryDate = new Date();
+    startQueryDate.setHours(0, 0, 0, 0);
+    let endQueryDate = new Date();
+    endQueryDate.setHours(23, 59, 59, 999);
 
-    // 1. Latest Events
+    if (dateFilter === 'Yesterday') {
+      startQueryDate.setDate(startQueryDate.getDate() - 1);
+      endQueryDate = new Date(startQueryDate);
+      endQueryDate.setHours(23, 59, 59, 999);
+    } else if (dateFilter === 'Select Date' && startDate && endDate) {
+      startQueryDate = new Date(startDate as string);
+      startQueryDate.setHours(0, 0, 0, 0);
+      endQueryDate = new Date(endDate as string);
+      endQueryDate.setHours(23, 59, 59, 999);
+    }
+
+    const startStr = startQueryDate.toISOString();
+    const endStr = endQueryDate.toISOString();
+    
+    console.log(`[WAF-API] Fetching WAF stats for date range: ${startStr} to ${endStr}`);
+
+    // 1. Latest Events (Filtered by date range)
     const latestEvents = db.prepare(`
       SELECT * FROM waf_events 
+      WHERE timestamp >= ? AND timestamp <= ?
       ORDER BY timestamp DESC 
       LIMIT 10
-    `).all();
-    console.log('[WAF-API] Latest Events Count:', latestEvents.length);
+    `).all(startStr, endStr);
 
-    // 2. Block type breakdown (today)
+    // 2. Block type breakdown
     const blockTypes = db.prepare(`
       SELECT attack_type as name, COUNT(*) as value 
       FROM waf_events 
-      WHERE timestamp >= ? 
+      WHERE timestamp >= ? AND timestamp <= ?
       GROUP BY attack_type
-    `).all(todayStr);
-    console.log('[WAF-API] Block Types:', blockTypes);
+    `).all(startStr, endStr);
 
     // 3. Top IP addresses
     const topIps = db.prepare(`
       SELECT ip_address as ip, COUNT(*) as count 
       FROM waf_events 
+      WHERE timestamp >= ? AND timestamp <= ?
       GROUP BY ip_address 
       ORDER BY count DESC 
       LIMIT 10
-    `).all();
+    `).all(startStr, endStr);
 
     // 4. Top Domains
     const topDomains = db.prepare(`
       SELECT domain, COUNT(*) as count 
       FROM waf_events 
+      WHERE timestamp >= ? AND timestamp <= ?
       GROUP BY domain 
       ORDER BY count DESC 
       LIMIT 10
-    `).all();
+    `).all(startStr, endStr);
 
     // 5. Total counts
-    const totalBlocksToday = db.prepare(`
-      SELECT COUNT(*) as count FROM waf_events WHERE timestamp >= ?
-    `).get(todayStr) as { count: number };
+    const totalBlocksPeriod = db.prepare(`
+      SELECT COUNT(*) as count FROM waf_events WHERE timestamp >= ? AND timestamp <= ?
+    `).get(startStr, endStr) as { count: number };
     
-    // Total blocks yesterday for comparison
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString();
-    const totalBlocksYesterday = db.prepare(`
-      SELECT COUNT(*) as count FROM waf_events WHERE timestamp >= ? AND timestamp < ?
-    `).get(yesterdayStr, todayStr) as { count: number };
+    // Total blocks for the previous equivalent period for comparison
+    const periodDuration = endQueryDate.getTime() - startQueryDate.getTime();
+    const prevStart = new Date(startQueryDate.getTime() - periodDuration);
+    const prevEnd = new Date(startQueryDate.getTime() - 1); // 1 ms before current period start
     
-    console.log('[WAF-API] Total Blocks Today:', totalBlocksToday.count);
-
+    const totalBlocksPrevPeriod = db.prepare(`
+      SELECT COUNT(*) as count FROM waf_events WHERE timestamp >= ? AND timestamp <= ?
+    `).get(prevStart.toISOString(), prevEnd.toISOString()) as { count: number };
+    
     // 6. Top Visited Pages (URLs)
     const topUrls = db.prepare(`
       SELECT url, COUNT(*) as count 
       FROM waf_events 
+      WHERE timestamp >= ? AND timestamp <= ?
       GROUP BY url 
       ORDER BY count DESC 
       LIMIT 10
-    `).all();
+    `).all(startStr, endStr);
 
-    // 7. Time series data (last 24 hours, grouped by hour)
+    // 7. Time series data (grouped by hour for the selected period)
     const timeSeriesData = db.prepare(`
       SELECT 
         strftime('%H:00', timestamp) as time,
         COUNT(*) as total,
         COUNT(CASE WHEN action != 'Passed' THEN 1 END) as afterFilter
       FROM waf_events 
-      WHERE timestamp >= datetime('now', '-24 hours')
+      WHERE timestamp >= ? AND timestamp <= ?
       GROUP BY strftime('%Y-%m-%d %H:00', timestamp)
       ORDER BY timestamp ASC
-    `).all();
-    console.log('[WAF-API] Time Series Data Points:', timeSeriesData.length);
+    `).all(startStr, endStr);
 
     res.json({
       latestEvents,
@@ -242,8 +260,8 @@ export async function getWafStats(req: AuthRequest, res: Response) {
       topIps,
       topDomains,
       topUrls,
-      totalBlocksToday: totalBlocksToday.count || 0,
-      totalBlocksYesterday: totalBlocksYesterday.count || 0,
+      totalBlocksToday: totalBlocksPeriod.count || 0, // Using same property name for frontend compatibility
+      totalBlocksYesterday: totalBlocksPrevPeriod.count || 0,
       timeSeriesData
     });
   } catch (error: any) {

@@ -18,6 +18,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function AdminWaf() {
   const [dateFilter, setDateFilter] = useState("Today");
+  const [dateRange, setDateRange] = useState<{ start: string; end: string } | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { token } = useAuth();
@@ -25,8 +26,18 @@ export default function AdminWaf() {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      console.log('[AdminWaf] Fetching stats from:', `${API_URL}/system/waf/stats`);
-      const res = await fetch(`${API_URL}/system/waf/stats`, {
+      
+      // Build query parameters based on date filter
+      const params = new URLSearchParams();
+      params.append('dateFilter', dateFilter);
+      
+      if (dateFilter === 'Select Date' && dateRange) {
+        params.append('startDate', dateRange.start);
+        params.append('endDate', dateRange.end);
+      }
+
+      console.log('[AdminWaf] Fetching stats from:', `${API_URL}/system/waf/stats?${params.toString()}`);
+      const res = await fetch(`${API_URL}/system/waf/stats?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -45,7 +56,7 @@ export default function AdminWaf() {
     fetchStats();
     const interval = setInterval(fetchStats, 30000); // refresh every 30s
     return () => clearInterval(interval);
-  }, []);
+  }, [dateFilter, dateRange]);
 
   const totalBlocks = stats?.totalBlocksToday || 0;
   const totalBlocksYesterday = stats?.totalBlocksYesterday || 0;
@@ -112,7 +123,7 @@ export default function AdminWaf() {
         
         {/* Header / Date Filter */}
         <div className="flex justify-between items-center bg-card text-card-foreground p-2 rounded-lg border shadow-sm">
-          <div className="flex space-x-1">
+          <div className="flex space-x-1 items-center">
             {["Yesterday", "Today"].map(filter => (
               <Button 
                 key={filter}
@@ -124,8 +135,32 @@ export default function AdminWaf() {
                 {filter}
               </Button>
             ))}
-            <div className="relative flex items-center">
-              <span className="text-sm text-muted-foreground ml-4 px-2 border-l border-border">Select Date 📅</span>
+            <div className="relative flex items-center group">
+              <Button
+                variant={dateFilter === "Select Date" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setDateFilter("Select Date")}
+                className={`ml-4 ${dateFilter === "Select Date" ? "bg-blue-500 hover:bg-blue-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Select Date 📅
+              </Button>
+              {dateFilter === "Select Date" && (
+                <div className="absolute top-full left-4 mt-2 bg-card border border-border shadow-md p-2 rounded-md z-10 flex gap-2">
+                  <input 
+                    type="date" 
+                    className="bg-background text-foreground text-sm border border-border rounded px-2 py-1"
+                    onChange={(e) => setDateRange(prev => ({ start: e.target.value, end: prev?.end || e.target.value }))}
+                    value={dateRange?.start || ''}
+                  />
+                  <span className="text-muted-foreground self-center">-</span>
+                  <input 
+                    type="date" 
+                    className="bg-background text-foreground text-sm border border-border rounded px-2 py-1"
+                    onChange={(e) => setDateRange(prev => ({ start: prev?.start || e.target.value, end: e.target.value }))}
+                    value={dateRange?.end || ''}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center text-blue-500 font-medium">
