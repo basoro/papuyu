@@ -109,7 +109,7 @@ export default function ProjectDetail() {
 
         {/* Info */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-          <InfoRow label="Owner" value={project.user_email} icon={<UserIcon className="h-3 w-3" />} />
+          <InfoRow label="Owner" value={project.user_email || user?.email || 'Unknown'} icon={<UserIcon className="h-3 w-3" />} />
           <InfoRow label="Repository" value={project.git_repository} mono />
           <InfoRow label="Branch" value={project.branch} mono icon={<GitBranch className="h-3 w-3" />} />
           <InfoRow label="Internal Port" value={`${project.port}`} mono />
