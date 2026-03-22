@@ -20,6 +20,7 @@ export interface Project {
   container_id: string | null;
   status: "idle" | "building" | "running" | "stopped" | "failed" | "queued";
   user_id: number;
+  user_email?: string;
   created_at: string;
   logs: string[];
 }

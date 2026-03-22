@@ -1,6 +1,6 @@
 import { Project } from "@/context/ProjectContext";
 import { useNavigate } from "react-router-dom";
-import { GitBranch } from "lucide-react";
+import { GitBranch, User as UserIcon } from "lucide-react";
 
 const statusClasses: Record<string, string> = {
   running: "status-dot-running",
@@ -23,6 +23,12 @@ export function ProjectRow({ project }: { project: Project }) {
         <p className="text-sm font-medium text-foreground truncate">{project.name}</p>
         <p className="text-xs text-muted-foreground font-mono truncate">{project.git_repository}</p>
       </div>
+      {project.user_email && (
+        <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground max-w-[150px] truncate" title={project.user_email}>
+          <UserIcon className="h-3 w-3 flex-shrink-0" />
+          <span className="truncate">{project.user_email}</span>
+        </div>
+      )}
       <div className="flex items-center gap-1 text-xs text-muted-foreground">
         <GitBranch className="h-3 w-3" />
         <span className="font-mono">{project.branch}</span>

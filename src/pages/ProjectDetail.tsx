@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
-import { ArrowLeft, Play, Square, RotateCcw, Trash2, GitBranch, ExternalLink, Rocket, Settings } from "lucide-react";
+import { ArrowLeft, Play, Square, RotateCcw, Trash2, GitBranch, ExternalLink, Rocket, Settings, User as UserIcon } from "lucide-react";
 
 const statusClasses: Record<string, string> = {
   running: "status-dot-running",
@@ -108,7 +108,10 @@ export default function ProjectDetail() {
         </div>
 
         {/* Info */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+          {project.user_email && user?.role === 'admin' && (
+            <InfoRow label="Owner" value={project.user_email} icon={<UserIcon className="h-3 w-3" />} />
+          )}
           <InfoRow label="Repository" value={project.git_repository} mono />
           <InfoRow label="Branch" value={project.branch} mono icon={<GitBranch className="h-3 w-3" />} />
           <InfoRow label="Internal Port" value={`${project.port}`} mono />
@@ -117,7 +120,7 @@ export default function ProjectDetail() {
           <div className="p-3 border border-border rounded-md bg-card overflow-hidden relative group">
             <p className="stat-label mb-1">RAM Limit</p>
             <div className="flex items-center justify-between">
-              <p className="text-sm font-mono text-foreground">
+              <p className="text-sm font-mono text-foreground truncate">
                 {project.ram_limit ? `${project.ram_limit} MB` : 'Unlimited'}
               </p>
               {user?.role === 'admin' && (
