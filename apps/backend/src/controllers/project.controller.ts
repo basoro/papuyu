@@ -172,9 +172,15 @@ const BUILD_DIR = process.env.BUILD_DIR || '/tmp/papuyu-builds';
 export function deleteProject(req: AuthRequest, res: Response) {
   const { id } = req.params;
   const userId = req.userId!;
+  const userRole = req.userRole;
 
   // Get project first to determine type
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(id, userId) as any;
+  let project;
+  if (userRole === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as any;
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(id, userId) as any;
+  }
 
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
@@ -205,7 +211,11 @@ export function deleteProject(req: AuthRequest, res: Response) {
   }
 
   // Delete from DB
-  const result = db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(id, userId);
+  if (userRole === 'admin') {
+    db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+  } else {
+    db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(id, userId);
+  }
   
   res.json({ message: 'Project deleted' });
 }

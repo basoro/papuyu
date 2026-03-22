@@ -23,8 +23,14 @@ function logMessage(projectId: string, message: string, level = 'info') {
 export async function deployProject(req: AuthRequest, res: Response) {
   const { projectId } = req.params;
   const userId = req.userId!;
+  const userRole = req.userRole;
   
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  let project;
+  if (userRole === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as any;
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  }
 
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -46,8 +52,14 @@ export async function deployProject(req: AuthRequest, res: Response) {
 export function restartProject(req: AuthRequest, res: Response) {
   const { projectId } = req.params;
   const userId = req.userId!;
+  const userRole = req.userRole;
   
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  let project;
+  if (userRole === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as any;
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  }
   
   if (!project) return res.status(404).json({ error: 'Project not found' });
   
@@ -71,8 +83,14 @@ export function restartProject(req: AuthRequest, res: Response) {
 export function startProject(req: AuthRequest, res: Response) {
   const { projectId } = req.params;
   const userId = req.userId!;
+  const userRole = req.userRole;
   
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  let project;
+  if (userRole === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as any;
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  }
   
   if (!project) return res.status(404).json({ error: 'Project not found' });
   
@@ -96,8 +114,14 @@ export function startProject(req: AuthRequest, res: Response) {
 export function stopProject(req: AuthRequest, res: Response) {
   const { projectId } = req.params;
   const userId = req.userId!;
+  const userRole = req.userRole;
   
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  let project;
+  if (userRole === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as any;
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  }
   
   if (!project) return res.status(404).json({ error: 'Project not found' });
   
@@ -121,8 +145,14 @@ export function stopProject(req: AuthRequest, res: Response) {
 export function getLogs(req: AuthRequest, res: Response) {
   const { projectId } = req.params;
   const userId = req.userId!;
+  const userRole = req.userRole;
   
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  let project;
+  if (userRole === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as any;
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  }
   
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
