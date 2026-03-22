@@ -235,7 +235,7 @@ export default function AdminWaf() {
                   <CardTitle className="text-sm text-foreground flex items-center">
                     <Filter className="w-4 h-4 mr-2" /> Traffic filtering request chart
                   </CardTitle>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => fetchStats()} disabled={loading}>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 !mt-0" onClick={() => fetchStats()} disabled={loading}>
                     <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
                   </Button>
                 </CardHeader>
