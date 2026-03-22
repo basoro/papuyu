@@ -435,7 +435,21 @@ networks:
     args.push('--env-file', envPath);
   }
 
-  args.push('up', '-d', '--build');
+  // Pull latest images before building/upping to ensure we have the latest base images
+  try {
+    const pullArgs = ['compose', '-p', projectName, '-f', filePath];
+    if (overridePath) pullArgs.push('-f', overridePath);
+    if (fs.existsSync(envPath)) pullArgs.push('--env-file', envPath);
+    pullArgs.push('pull');
+    
+    if (onLog) onLog(`Pulling latest images for compose services...`);
+    await execStream('docker', pullArgs, { timeout: 300_000, cwd: buildDir }, onLog);
+  } catch (e) {
+    if (onLog) onLog(`Warning: Failed to pull some images, continuing with build/up...`);
+  }
+
+  // Use --force-recreate to guarantee containers are restarted with new code/volumes
+  args.push('up', '-d', '--build', '--force-recreate');
 
   await execStream(
     'docker',
