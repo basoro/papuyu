@@ -21,7 +21,9 @@ const io = new Server(server, {
   cors: {
     origin: '*', // Allow all origins for now
     methods: ['GET', 'POST']
-  }
+  },
+  path: '/socket.io/',
+  transports: ['websocket', 'polling']
 });
 
 initSocket(io);
