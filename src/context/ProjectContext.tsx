@@ -56,7 +56,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     socket = io(API_URL, {
       transports: ['websocket', 'polling'], // Try websocket first
       reconnectionAttempts: 5,
-      path: '/socket.io/', // Ensure path matches default
+      path: '/socket.io', // Ensure path matches default without trailing slash
       secure: API_URL.startsWith('https'),
       rejectUnauthorized: false
     });
