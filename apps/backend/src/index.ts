@@ -59,6 +59,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Root path to prevent 404
+app.get('/', (req, res) => {
+  res.json({ status: 'Papuyu API is running' });
+});
+
 server.listen(config.port, () => {
   console.log(`Server running on port ${config.port}`);
   
