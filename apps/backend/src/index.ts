@@ -20,10 +20,12 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: '*', // Allow all origins for now
-    methods: ['GET', 'POST']
+    methods: ['GET', 'POST'],
+    credentials: true
   },
   path: '/socket.io/',
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
 });
 
 initSocket(io);
