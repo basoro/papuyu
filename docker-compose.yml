@@ -57,6 +57,7 @@ services:
       - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-${SERVER_IP:-localhost}}`)" 
       - "traefik.http.services.backend.loadbalancer.server.port=4000"
       - "traefik.http.routers.backend.entrypoints=web,websecure"
+      - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=myresolver"
     networks:
       - papuyu-network
