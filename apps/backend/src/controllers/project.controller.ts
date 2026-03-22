@@ -43,7 +43,7 @@ export function getProjectEnv(req: AuthRequest, res: Response) {
 }
 
 export function createProject(req: AuthRequest, res: Response) {
-  const { name, git_repository, branch, dockerfile_path, port, project_type, compose_file, env_vars, subdomain, waf_enabled } = req.body;
+  const { name, git_repository, branch, dockerfile_path, port, project_type, compose_file, env_vars, subdomain, waf_enabled, ram_limit } = req.body;
   const userId = req.userId!;
 
   if (!name || !git_repository) {
@@ -54,12 +54,23 @@ export function createProject(req: AuthRequest, res: Response) {
     return res.status(400).json({ error: 'Subdomain must be lowercase alphanumeric with hyphens' });
   }
 
+  const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any;
+  let finalRamLimit = 0;
+
+  if (user.role === 'admin') {
+    finalRamLimit = ram_limit ? parseInt(ram_limit, 10) : 0;
+  } else if (user.role === 'client') {
+    finalRamLimit = 512; // Default Client limit
+  } else {
+    finalRamLimit = 256; // Default User limit
+  }
+
   const id = `prj_${nanoid(6)}`;
   
   try {
     const stmt = db.prepare(`
-      INSERT INTO projects (id, name, git_repository, branch, dockerfile_path, port, user_id, project_type, compose_file, env_vars, subdomain, waf_enabled)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, name, git_repository, branch, dockerfile_path, port, user_id, project_type, compose_file, env_vars, subdomain, waf_enabled, ram_limit)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     stmt.run(
@@ -74,7 +85,8 @@ export function createProject(req: AuthRequest, res: Response) {
       compose_file || 'docker-compose.yml',
       JSON.stringify(env_vars || []),
       subdomain || null,
-      waf_enabled ? 1 : 0
+      waf_enabled ? 1 : 0,
+      finalRamLimit
     );
 
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
@@ -89,7 +101,20 @@ export function createProject(req: AuthRequest, res: Response) {
 
 export function listProjects(req: AuthRequest, res: Response) {
   const userId = req.userId!;
-  const projects = db.prepare('SELECT * FROM projects WHERE user_id = ?').all(userId);
+  const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any;
+  
+  let projects;
+  if (user && user.role === 'admin') {
+    projects = db.prepare(`
+      SELECT p.*, u.email as user_email 
+      FROM projects p 
+      LEFT JOIN users u ON p.user_id = u.id
+      ORDER BY p.created_at DESC
+    `).all();
+  } else {
+    projects = db.prepare('SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC').all(userId);
+  }
+  
   res.json(projects);
 }
 
@@ -97,7 +122,14 @@ export function getProject(req: AuthRequest, res: Response) {
   const { id } = req.params;
   const userId = req.userId!;
   
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(id, userId);
+  const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any;
+  
+  let project;
+  if (user && user.role === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(id, userId);
+  }
   
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
@@ -107,16 +139,58 @@ export function getProject(req: AuthRequest, res: Response) {
 }
 
 import { composeDown, removeContainer, removeImage } from '../services/docker.service';
+import { deploymentQueue } from '../services/queue.service';
 import path from 'path';
 
 const BUILD_DIR = process.env.BUILD_DIR || '/tmp/papuyu-builds';
+
+export async function updateProject(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+  const { ram_limit } = req.body;
+  const userId = req.userId!;
+  
+  try {
+    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any;
+    
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can update RAM limits' });
+    }
+    
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as any;
+    
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
+    if (ram_limit !== undefined) {
+      const limit = parseInt(ram_limit, 10);
+      db.prepare('UPDATE projects SET ram_limit = ? WHERE id = ?').run(limit, id);
+      
+      // Auto restart container by adding it to deployment queue
+      // This will ensure Docker Compose or Dockerfile recreates the container with the new limit
+      await deploymentQueue.add('deploy', { projectId: id, userId: project.user_id });
+      db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('queued', id);
+    }
+    
+    res.json({ message: 'Project updated and restarting to apply new limits' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
 export function deleteProject(req: AuthRequest, res: Response) {
   const { id } = req.params;
   const userId = req.userId!;
 
+  const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any;
+
   // Get project first to determine type
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(id, userId) as any;
+  let project;
+  if (user && user.role === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as any;
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(id, userId) as any;
+  }
 
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
@@ -147,7 +221,11 @@ export function deleteProject(req: AuthRequest, res: Response) {
   }
 
   // Delete from DB
-  const result = db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(id, userId);
+  if (user && user.role === 'admin') {
+    db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+  } else {
+    db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(id, userId);
+  }
   
   res.json({ message: 'Project deleted' });
 }

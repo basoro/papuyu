@@ -100,7 +100,7 @@ export async function buildImage(projectId: string, buildDir: string, dockerfile
   );
 }
 
-export async function runContainer(projectId: string, port: number, subdomain?: string, wafEnabled?: boolean, onLog?: (msg: string) => void): Promise<string> {
+export async function runContainer(projectId: string, port: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void): Promise<string> {
   const safeProjectId = canonicalId(projectId);
   const imageName = `papuyu-${safeProjectId}:latest`;
   const containerName = `papuyu-${safeProjectId}`;
@@ -145,10 +145,21 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
     );
   }
 
+  const runArgs = ['run', '-d', '--name', containerName, '--network', 'papuyu-network'];
+  
+  if (ramLimitMB && ramLimitMB > 0) {
+    runArgs.push('--memory', `${ramLimitMB}m`);
+    // Optional: Also set swap limit to prevent swapping out to disk, usually equal to memory or slightly larger
+    runArgs.push('--memory-swap', `${ramLimitMB}m`);
+    if (onLog) onLog(`Applying RAM limit: ${ramLimitMB}MB`);
+  }
+
+  runArgs.push(...labelArgs, imageName);
+
   // Connect to papuyu-network and do NOT map host port
   const output = await execStream(
     'docker',
-    ['run', '-d', '--name', containerName, '--network', 'papuyu-network', ...labelArgs, imageName],
+    runArgs,
     {},
     onLog
   );
@@ -370,7 +381,7 @@ export function replacePortInDockerfile(buildDir: string, dockerfilePath: string
   }
 }
 
-export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, wafEnabled?: boolean, onLog?: (msg: string) => void): Promise<void> {
+export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void): Promise<void> {
   const safeProjectId = canonicalId(projectId);
   const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   const filePath = resolveComposeFile(buildDir, composeFile);
@@ -407,6 +418,15 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
         tlsLabels = `\n      - "traefik.http.routers.papuyu-${safeProjectId}.entrypoints=web"`;
       }
 
+      let deployBlock = '';
+      if (ramLimitMB && ramLimitMB > 0) {
+        deployBlock = `
+    deploy:
+      resources:
+        limits:
+          memory: ${ramLimitMB}M`;
+      }
+
       const overrideContent = `
 version: '3.8'
 services:
@@ -418,7 +438,7 @@ services:
       - "traefik.http.routers.papuyu-${safeProjectId}.rule=Host(\`${host}\`)"
       - "traefik.http.routers.papuyu-${safeProjectId}.service=papuyu-${safeProjectId}"
       - "traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}"
-      - "traefik.docker.network=papuyu-network"${tlsLabels}${wafLabels}
+      - "traefik.docker.network=papuyu-network"${tlsLabels}${wafLabels}${deployBlock}
 
 networks:
   papuyu-network:
@@ -427,8 +447,8 @@ networks:
       overridePath = path.join(buildDir, 'docker-compose.override.yml');
       fs.writeFileSync(overridePath, overrideContent);
       args.push('-f', overridePath);
-      if (onLog) onLog(`Generated override file for service ${serviceName} with Traefik labels`);
-      else console.log(`Generated override file for service ${serviceName} with Traefik labels`);
+      if (onLog) onLog(`Generated override file for service ${serviceName} with Traefik labels and limits`);
+      else console.log(`Generated override file for service ${serviceName} with Traefik labels and limits`);
   }
 
   if (fs.existsSync(envPath)) {

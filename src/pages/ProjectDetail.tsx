@@ -1,10 +1,12 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Terminal } from "@/components/Terminal";
 import { useProjects } from "@/context/ProjectContext";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Play, Square, RotateCcw, Trash2, GitBranch, ExternalLink, Rocket } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Play, Square, RotateCcw, Trash2, GitBranch, ExternalLink, Rocket, Edit2 } from "lucide-react";
 
 const statusClasses: Record<string, string> = {
   running: "status-dot-running",
@@ -17,12 +19,17 @@ const statusClasses: Record<string, string> = {
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getProject, deployProject, stopProject, startProject, restartProject, deleteProject, refreshLogs, subscribeToLogs } = useProjects();
+  const { getProject, deployProject, stopProject, startProject, restartProject, deleteProject, updateProject, refreshLogs, subscribeToLogs } = useProjects();
+  const { isAdmin } = useAuth();
   const project = getProject(id || "");
+  
+  const [isEditingRam, setIsEditingRam] = useState(false);
+  const [ramLimit, setRamLimit] = useState("");
 
   useEffect(() => {
     if (project?.id) {
       refreshLogs(project.id);
+      setRamLimit(project.ram_limit?.toString() || "0");
       
       const unsubscribe = subscribeToLogs(project.id, (log) => {
         // Optimistically update logs (optional, or wait for polling if preferred, 
@@ -52,6 +59,15 @@ export default function ProjectDetail() {
     if (confirm("Are you sure you want to delete this project?")) {
       await deleteProject(project.id);
       navigate("/projects");
+    }
+  };
+
+  const handleSaveRam = async () => {
+    try {
+      await updateProject(project.id, { ram_limit: parseInt(ramLimit) || 0 });
+      setIsEditingRam(false);
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -92,6 +108,42 @@ export default function ProjectDetail() {
           <InfoRow label="Branch" value={project.branch} mono icon={<GitBranch className="h-3 w-3" />} />
           <InfoRow label="Internal Port" value={`${project.port}`} mono />
           <InfoRow label="Public URL" value={publicUrl} mono icon={<ExternalLink className="h-3 w-3" />} link={publicUrl} />
+          
+          {/* RAM Limit Row (Admins can edit) */}
+          <div className="p-3 border border-border rounded-md bg-card overflow-hidden col-span-1 sm:col-span-2 lg:col-span-4 flex items-center justify-between">
+            <div>
+              <p className="stat-label mb-1">RAM Limit</p>
+              {isEditingRam ? (
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="number" 
+                    value={ramLimit} 
+                    onChange={(e) => setRamLimit(e.target.value)} 
+                    className="w-24 h-8 text-sm" 
+                  />
+                  <span className="text-sm text-muted-foreground">MB (0 = Unlimited)</span>
+                </div>
+              ) : (
+                <p className="text-sm text-foreground font-mono">
+                  {project.ram_limit ? `${project.ram_limit} MB` : "Unlimited"}
+                </p>
+              )}
+            </div>
+            {isAdmin && (
+              <div>
+                {isEditingRam ? (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setIsEditingRam(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleSaveRam}>Save</Button>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => setIsEditingRam(true)}>
+                    <Edit2 className="h-3 w-3 mr-1" /> Edit RAM
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Actions */}

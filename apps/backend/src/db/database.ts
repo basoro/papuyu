@@ -61,6 +61,19 @@ try {
 }
 
 try {
+  const columns = db.prepare("PRAGMA table_info(projects)").all() as any[];
+  const hasRamLimit = columns.some(c => c.name === 'ram_limit');
+  
+  if (!hasRamLimit) {
+    console.log('Migrating: Adding ram_limit column to projects table');
+    db.prepare("ALTER TABLE projects ADD COLUMN ram_limit INTEGER DEFAULT 0").run();
+    console.log('Migration successful: ram_limit column added');
+  }
+} catch (e: any) {
+  console.error('Migration failed for ram_limit:', e);
+}
+
+try {
   // Create WAF events table if it doesn't exist
   db.prepare(`
     CREATE TABLE IF NOT EXISTS waf_events (
