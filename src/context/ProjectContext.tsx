@@ -16,7 +16,6 @@ export interface Project {
   env_vars?: { key: string; value: string }[];
   subdomain?: string;
   waf_enabled?: boolean;
-  ram_limit?: number;
   container_id: string | null;
   status: "idle" | "building" | "running" | "stopped" | "failed" | "queued";
   user_id: number;
@@ -30,7 +29,6 @@ interface ProjectContextType {
   addProject: (p: Omit<Project, "id" | "container_id" | "status" | "created_at" | "logs" | "user_id">) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   getProject: (id: string) => Project | undefined;
-  updateProject: (id: string, data: Partial<Project>) => Promise<void>;
   deployProject: (id: string) => Promise<void>;
   stopProject: (id: string) => Promise<void>;
   startProject: (id: string) => Promise<void>;
@@ -56,9 +54,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     socket = io(API_URL, {
       transports: ['websocket', 'polling'], // Try websocket first
       reconnectionAttempts: 5,
-      path: '/socket.io', // Ensure path matches default without trailing slash
-      secure: true,
-      rejectUnauthorized: false
     });
 
     socket.on("connect", () => {
@@ -131,17 +126,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   };
 
   const getProject = (id: string) => projects.find((p) => p.id === id);
-
-  const updateProject = async (id: string, data: Partial<Project>) => {
-    try {
-      await apiRequest(`/projects/${id}`, "PUT", data);
-      fetchProjects();
-      toast({ title: "Project updated", description: "Project settings updated successfully. Restarting container..." });
-    } catch (error: any) {
-      toast({ title: "Failed to update project", description: error.message, variant: "destructive" });
-      throw error;
-    }
-  };
 
   const deployProject = async (id: string) => {
     try {
@@ -238,7 +222,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         addProject,
         deleteProject,
         getProject,
-        updateProject,
         deployProject,
         stopProject,
         startProject,
