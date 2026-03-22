@@ -3,6 +3,7 @@ import { customAlphabet } from 'nanoid';
 const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 6);
 import db from '../db/database';
 import { AuthRequest } from '../middleware/auth';
+import { deploymentQueue } from '../services/queue.service';
 
 import { execSync } from 'child_process';
 
@@ -45,6 +46,7 @@ export function getProjectEnv(req: AuthRequest, res: Response) {
 export function createProject(req: AuthRequest, res: Response) {
   const { name, git_repository, branch, dockerfile_path, port, project_type, compose_file, env_vars, subdomain, waf_enabled, ram_limit } = req.body;
   const userId = req.userId!;
+  const userRole = req.userRole;
 
   if (!name || !git_repository) {
     return res.status(400).json({ error: 'Name and Git Repository are required' });
@@ -52,6 +54,14 @@ export function createProject(req: AuthRequest, res: Response) {
 
   if (subdomain && !/^[a-z0-9-]+$/.test(subdomain)) {
     return res.status(400).json({ error: 'Subdomain must be lowercase alphanumeric with hyphens' });
+  }
+
+  // Enforce RAM limits based on role
+  let finalRamLimit = ram_limit ? parseInt(ram_limit, 10) : 0;
+  if (userRole === 'user') {
+    if (finalRamLimit === 0 || finalRamLimit > 256) finalRamLimit = 256;
+  } else if (userRole === 'client') {
+    if (finalRamLimit === 0 || finalRamLimit > 512) finalRamLimit = 512;
   }
 
   const id = `prj_${nanoid(6)}`;
@@ -75,7 +85,7 @@ export function createProject(req: AuthRequest, res: Response) {
       JSON.stringify(env_vars || []),
       subdomain || null,
       waf_enabled ? 1 : 0,
-      ram_limit ? parseInt(ram_limit, 10) : 0
+      finalRamLimit
     );
 
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
@@ -90,21 +100,68 @@ export function createProject(req: AuthRequest, res: Response) {
 
 export function listProjects(req: AuthRequest, res: Response) {
   const userId = req.userId!;
-  const projects = db.prepare('SELECT * FROM projects WHERE user_id = ?').all(userId);
-  res.json(projects);
+  const userRole = req.userRole;
+  
+  if (userRole === 'admin') {
+    // Admin can see all projects
+    const projects = db.prepare(`
+      SELECT projects.*, users.email as user_email 
+      FROM projects 
+      LEFT JOIN users ON projects.user_id = users.id
+    `).all();
+    return res.json(projects);
+  } else {
+    const projects = db.prepare('SELECT * FROM projects WHERE user_id = ?').all(userId);
+    return res.json(projects);
+  }
 }
 
 export function getProject(req: AuthRequest, res: Response) {
   const { id } = req.params;
   const userId = req.userId!;
+  const userRole = req.userRole;
   
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(id, userId);
+  let project;
+  if (userRole === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(id, userId);
+  }
   
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
   
   res.json(project);
+}
+
+export async function updateProjectRam(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+  const { ram_limit } = req.body;
+  const userRole = req.userRole;
+
+  if (userRole !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can edit RAM limits' });
+  }
+
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as any;
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const newLimit = parseInt(ram_limit) || 0;
+
+  try {
+    db.prepare('UPDATE projects SET ram_limit = ? WHERE id = ?').run(newLimit, id);
+    
+    // Automatically trigger redeploy so the container is recreated with the new memory limit
+    await deploymentQueue.add('deploy', { projectId: id, userId: project.user_id });
+    db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('queued', id);
+
+    res.json({ message: 'RAM limit updated and project is restarting', ram_limit: newLimit });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 }
 
 import { composeDown, removeContainer, removeImage } from '../services/docker.service';

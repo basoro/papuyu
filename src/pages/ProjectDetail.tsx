@@ -1,10 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Terminal } from "@/components/Terminal";
 import { useProjects } from "@/context/ProjectContext";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Play, Square, RotateCcw, Trash2, GitBranch, ExternalLink, Rocket } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/api";
+import { ArrowLeft, Play, Square, RotateCcw, Trash2, GitBranch, ExternalLink, Rocket, Settings } from "lucide-react";
 
 const statusClasses: Record<string, string> = {
   running: "status-dot-running",
@@ -17,8 +22,13 @@ const statusClasses: Record<string, string> = {
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getProject, deployProject, stopProject, startProject, restartProject, deleteProject, refreshLogs, subscribeToLogs } = useProjects();
+  const { getProject, deployProject, stopProject, startProject, restartProject, deleteProject, refreshLogs, subscribeToLogs, fetchProjects } = useProjects();
   const project = getProject(id || "");
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const [showRamEdit, setShowRamEdit] = useState(false);
+  const [newRamLimit, setNewRamLimit] = useState("");
 
   useEffect(() => {
     if (project?.id) {
@@ -55,6 +65,17 @@ export default function ProjectDetail() {
     }
   };
 
+  const handleSaveRam = async () => {
+    try {
+      await apiRequest(`/projects/${project.id}/ram`, "PUT", { ram_limit: newRamLimit });
+      toast({ title: "RAM Updated", description: "Container is restarting with new RAM limit." });
+      setShowRamEdit(false);
+      fetchProjects();
+    } catch (error: any) {
+      toast({ title: "Failed to update RAM", description: error.message, variant: "destructive" });
+    }
+  };
+
   // backend logic canonicalId: raw.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50)
   const safeProjectId = project.id.replace(/_/g, '-');
   const serverIp = import.meta.env.VITE_SERVER_IP;
@@ -87,11 +108,47 @@ export default function ProjectDetail() {
         </div>
 
         {/* Info */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <InfoRow label="Repository" value={project.git_repository} mono />
           <InfoRow label="Branch" value={project.branch} mono icon={<GitBranch className="h-3 w-3" />} />
           <InfoRow label="Internal Port" value={`${project.port}`} mono />
           <InfoRow label="Public URL" value={publicUrl} mono icon={<ExternalLink className="h-3 w-3" />} link={publicUrl} />
+          
+          <div className="p-3 border border-border rounded-md bg-card overflow-hidden relative group">
+            <p className="stat-label mb-1">RAM Limit</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-mono text-foreground">
+                {project.ram_limit ? `${project.ram_limit} MB` : 'Unlimited'}
+              </p>
+              {user?.role === 'admin' && (
+                <button 
+                  onClick={() => {
+                    setNewRamLimit(project.ram_limit?.toString() || "0");
+                    setShowRamEdit(!showRamEdit);
+                  }}
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                  title="Edit RAM Limit"
+                >
+                  <Settings className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            {showRamEdit && (
+              <div className="absolute inset-0 bg-card p-2 flex flex-col justify-center border border-border rounded-md z-10 shadow-lg">
+                <div className="flex gap-1">
+                  <Input 
+                    type="number" 
+                    className="h-7 text-xs" 
+                    value={newRamLimit} 
+                    onChange={e => setNewRamLimit(e.target.value)} 
+                    placeholder="MB (0 = Unlmt)" 
+                  />
+                  <Button size="sm" className="h-7 px-2" onClick={handleSaveRam}>Save</Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setShowRamEdit(false)}>X</Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Actions */}

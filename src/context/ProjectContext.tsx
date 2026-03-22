@@ -16,6 +16,7 @@ export interface Project {
   env_vars?: { key: string; value: string }[];
   subdomain?: string;
   waf_enabled?: boolean;
+  ram_limit: number;
   container_id: string | null;
   status: "idle" | "building" | "running" | "stopped" | "failed" | "queued";
   user_id: number;
@@ -33,8 +34,9 @@ interface ProjectContextType {
   stopProject: (id: string) => Promise<void>;
   startProject: (id: string) => Promise<void>;
   restartProject: (id: string) => Promise<void>;
-  refreshLogs: (id: string) => Promise<void>;
-  subscribeToLogs: (projectId: string, callback: (log: any) => void) => () => void;
+  refreshLogs: (id: string) => void;
+  subscribeToLogs: (id: string, callback: (log: string) => void) => () => void;
+  fetchProjects: () => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | null>(null);
@@ -228,6 +230,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         restartProject,
         refreshLogs,
         subscribeToLogs,
+        fetchProjects,
       }}
     >
       {children}

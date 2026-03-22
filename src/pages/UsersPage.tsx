@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 interface User {
   id: number;
   email: string;
-  role: string;
+  role: "admin" | "client" | "user";
   created_at: string;
 }
 
@@ -56,6 +56,16 @@ export default function UsersPage() {
       toast({ title: "User removed", description: "User deleted successfully." });
     } catch (error: any) {
       toast({ title: "Failed to remove user", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const changeRole = async (id: number, newRole: string) => {
+    try {
+      await apiRequest(`/users/${id}/role`, "PUT", { role: newRole });
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
+      toast({ title: "Role updated", description: `User role changed to ${newRole}.` });
+    } catch (error: any) {
+      toast({ title: "Failed to update role", description: error.message, variant: "destructive" });
     }
   };
 
@@ -111,7 +121,21 @@ export default function UsersPage() {
                 <UsersIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                 <span className="text-sm truncate">{u.email}</span>
               </div>
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{u.role}</span>
+              <div className="flex items-center">
+                {u.role === "admin" ? (
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Admin</span>
+                ) : (
+                  <select 
+                    value={u.role}
+                    onChange={(e) => changeRole(u.id, e.target.value)}
+                    className="bg-background text-[10px] uppercase tracking-widest text-foreground border border-border rounded px-2 py-1"
+                  >
+                    <option value="user">User (256MB)</option>
+                    <option value="client">Client (512MB)</option>
+                    <option value="admin">Admin (Unlmt)</option>
+                  </select>
+                )}
+              </div>
               <span className="text-xs text-muted-foreground tabular-nums">{new Date(u.created_at).toLocaleDateString()}</span>
               <div className="text-right">
                 {u.role !== "admin" && (

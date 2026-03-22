@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 interface User {
   id: number;
   email: string;
-  role: "admin" | "user";
+  role: "admin" | "client" | "user";
 }
 
 interface AuthContextType {

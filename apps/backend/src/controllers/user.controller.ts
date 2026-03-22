@@ -22,3 +22,19 @@ export function deleteUser(req: AuthRequest, res: Response) {
   
   res.json({ message: 'User deleted' });
 }
+
+export function updateUserRole(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+  const { role } = req.body;
+  
+  if (parseInt(id) === req.userId) {
+    return res.status(400).json({ error: 'Cannot change your own role' });
+  }
+
+  if (!['user', 'client', 'admin'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+
+  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
+  res.json({ message: 'User role updated' });
+}

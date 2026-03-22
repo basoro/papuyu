@@ -2,6 +2,7 @@ import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ProjectRow } from "@/components/ProjectRow";
 import { useProjects } from "@/context/ProjectContext";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Projects() {
   const { projects, addProject } = useProjects();
+  const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingEnv, setLoadingEnv] = useState(false);
@@ -257,7 +259,11 @@ export default function Projects() {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">RAM Limit (MB)</Label>
                 <Input type="number" placeholder="0" value={form.ram_limit} onChange={e => setForm({ ...form, ram_limit: e.target.value })} className="bg-background font-mono text-sm" />
-                <p className="text-[10px] text-muted-foreground">Batas memori (0 = tanpa batas). Contoh: 512 untuk 512MB.</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {user?.role === 'user' ? "Maksimal 256MB untuk akun User." : 
+                   user?.role === 'client' ? "Maksimal 512MB untuk akun Client." : 
+                   "Batas memori (0 = tanpa batas). Contoh: 512 untuk 512MB."}
+                </p>
               </div>
             </div>
 

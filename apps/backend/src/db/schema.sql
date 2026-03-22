@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   email       TEXT UNIQUE NOT NULL,
   password    TEXT NOT NULL,           -- bcrypt hashed
-  role        TEXT DEFAULT 'user',     -- 'admin' | 'user'
+  role        TEXT DEFAULT 'user',     -- 'admin' | 'client' | 'user'
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
