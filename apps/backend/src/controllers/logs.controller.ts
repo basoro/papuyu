@@ -6,8 +6,14 @@ import { getContainerLogs } from '../services/docker.service';
 export function getDeploymentLogs(req: AuthRequest, res: Response) {
   const { projectId } = req.params;
   const userId = req.userId!;
+  const userRole = req.userRole;
   
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId);
+  let project;
+  if (userRole === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId);
+  }
   
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -22,8 +28,14 @@ export function getDeploymentLogs(req: AuthRequest, res: Response) {
 export function getRuntimeLogs(req: AuthRequest, res: Response) {
   const { projectId } = req.params;
   const userId = req.userId!;
+  const userRole = req.userRole;
   
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  let project;
+  if (userRole === 'admin') {
+    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as any;
+  } else {
+    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
+  }
   
   if (!project) return res.status(404).json({ error: 'Project not found' });
   
