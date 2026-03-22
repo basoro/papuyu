@@ -19,6 +19,7 @@ export default function UsersPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState("user");
   const { toast } = useToast();
 
   const fetchUsers = useCallback(async () => {
@@ -38,10 +39,11 @@ export default function UsersPage() {
   const addUser = async () => {
     if (!newEmail || !newPassword) return;
     try {
-      await apiRequest("/auth/register", "POST", { email: newEmail, password: newPassword });
+      await apiRequest("/auth/register", "POST", { email: newEmail, password: newPassword, role: newRole });
       toast({ title: "User created", description: "User added successfully." });
       setNewEmail("");
       setNewPassword("");
+      setNewRole("user");
       setShowAdd(false);
       fetchUsers();
     } catch (error: any) {
@@ -59,7 +61,7 @@ export default function UsersPage() {
     }
   };
 
-  const changeRole = async (id: number, newRole: string) => {
+  const changeRole = async (id: number, newRole: "admin" | "client" | "user") => {
     try {
       await apiRequest(`/users/${id}/role`, "PUT", { role: newRole });
       setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
@@ -103,7 +105,19 @@ export default function UsersPage() {
                 className="bg-background" 
               />
             </div>
-            <Button size="sm" onClick={addUser} className="papuyu-btn-active">Create</Button>
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Role</Label>
+              <select 
+                value={newRole} 
+                onChange={e => setNewRole(e.target.value)}
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="user">User</option>
+                <option value="client">Client</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <Button size="sm" onClick={addUser} className="papuyu-btn-active h-10">Create</Button>
           </div>
         )}
 
@@ -127,7 +141,7 @@ export default function UsersPage() {
                 ) : (
                   <select 
                     value={u.role}
-                    onChange={(e) => changeRole(u.id, e.target.value)}
+                    onChange={(e) => changeRole(u.id, e.target.value as "admin" | "client" | "user")}
                     className="bg-background text-[10px] uppercase tracking-widest text-foreground border border-border rounded px-2 py-1"
                   >
                     <option value="user">User (256MB)</option>
