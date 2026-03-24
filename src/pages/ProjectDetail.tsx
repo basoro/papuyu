@@ -45,25 +45,25 @@ export default function ProjectDetail() {
     }
   }, [project?.id, refreshLogs, subscribeToLogs]);
 
+  const handleDelete = async () => {
+    if (confirm("Are you sure you want to delete this project?")) {
+      await deleteProject(project!.id);
+      navigate("/projects", { replace: true });
+    }
+  };
+
   if (!project) {
     return (
       <DashboardLayout>
         <div className="text-center py-20">
           <p className="text-muted-foreground">Project not found.</p>
-          <Button variant="ghost" className="mt-4" onClick={() => navigate("/projects")}>
+          <Button variant="ghost" className="mt-4" onClick={() => navigate("/projects", { replace: true })}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back to Projects
           </Button>
         </div>
       </DashboardLayout>
     );
   }
-
-  const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this project?")) {
-      await deleteProject(project.id);
-      navigate("/projects");
-    }
-  };
 
   const handleSaveRam = async () => {
     try {

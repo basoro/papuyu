@@ -196,7 +196,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setProjects((prev) =>
         prev.map((p) => (p.id === id ? { ...p, logs: logs.map((l: any) => l.message) } : p))
       );
-    } catch (error) {
+    } catch (error: any) {
+      // If the project was deleted, it will return 404, we can ignore this error
+      // to prevent console spam when a project is just deleted
+      if (error.message && error.message.includes('Project not found')) {
+        return;
+      }
       console.error("Failed to fetch logs", error);
     }
   };
