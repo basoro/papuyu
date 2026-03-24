@@ -117,10 +117,10 @@ export default function AdminDocker() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Docker Management</h1>
-            <p className="text-muted-foreground mt-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Docker Management</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
               Monitor and manage containers, images, and resources across the platform.
             </p>
           </div>
@@ -208,15 +208,15 @@ export default function AdminDocker() {
 
         {/* Container List Section */}
         <Card>
-          <CardHeader className="pb-4 flex flex-row items-center justify-between border-b">
+          <CardHeader className="pb-4 flex flex-col sm:flex-row sm:items-center justify-between border-b gap-4">
             <CardTitle className="text-lg">Container List</CardTitle>
-            <div className="flex items-center space-x-2">
-              <div className="relative">
+            <div className="flex items-center w-full sm:w-auto">
+              <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
                   placeholder="Search container..."
-                  className="w-64 pl-8"
+                  className="w-full sm:w-64 pl-8"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -237,10 +237,10 @@ export default function AdminDocker() {
                     onClick={() => setSelectedContainer(container)}
                   >
                     <CardContent className="p-4 space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-2 truncate">
+                      <div className="flex items-start justify-between min-w-0">
+                        <div className="flex items-center space-x-2 truncate pr-2">
                           <Terminal className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                          <div className="truncate">
+                          <div className="truncate min-w-0">
                             <p className="font-semibold text-sm truncate" title={container.name}>
                               {container.name}
                             </p>
@@ -258,7 +258,7 @@ export default function AdminDocker() {
                         />
                       </div>
                       
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground mt-2">
                         Created at: {new Date(container.created * 1000).toLocaleString()}
                       </div>
 
@@ -293,19 +293,19 @@ export default function AdminDocker() {
             setActiveTab("Container status");
           }
         }}>
-          <DialogContent className="max-w-4xl h-[600px] flex flex-col p-0 overflow-hidden">
-            <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-              <DialogTitle>Container Manage [{selectedContainer?.name}]</DialogTitle>
+          <DialogContent className="max-w-4xl h-[90vh] md:h-[600px] flex flex-col p-0 overflow-hidden">
+            <DialogHeader className="px-4 sm:px-6 py-4 border-b flex-shrink-0">
+              <DialogTitle className="truncate pr-6">Container Manage [{selectedContainer?.name}]</DialogTitle>
             </DialogHeader>
             
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
               {/* Sidebar */}
-              <div className="w-64 border-r bg-muted/10 p-4 space-y-1 overflow-y-auto">
+              <div className="w-full md:w-64 border-b md:border-b-0 md:border-r bg-muted/10 p-2 sm:p-4 space-y-1 overflow-y-auto flex flex-row md:flex-col gap-2 md:gap-0 whitespace-nowrap md:whitespace-normal scrollbar-hide shrink-0">
                 {["Container status", "Container terminal", "Container details", "Storage volumes", "Container network", "Reboot strategy", "Real-time logs"].map((item) => (
                   <Button 
                     key={item} 
                     variant={activeTab === item ? "secondary" : "ghost"} 
-                    className="w-full justify-start font-normal"
+                    className="w-auto md:w-full justify-start font-normal flex-shrink-0 text-xs sm:text-sm"
                     onClick={() => setActiveTab(item)}
                   >
                     {item}
@@ -314,10 +314,10 @@ export default function AdminDocker() {
               </div>
 
               {/* Main Content Area */}
-              <div className="flex-1 p-6 overflow-y-auto">
+              <div className="flex-1 p-4 sm:p-6 overflow-y-auto min-w-0">
                 {activeTab === "Container status" && (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-center space-x-2">
                         <span className="font-medium">Current Status:</span>
                         <span className={`capitalize ${
@@ -326,10 +326,11 @@ export default function AdminDocker() {
                           {selectedContainer?.state}
                         </span>
                       </div>
-                      <div className="space-x-2">
+                      <div className="flex space-x-2 w-full sm:w-auto">
                         {selectedContainer?.state === 'running' ? (
                           <Button 
                             variant="outline" 
+                            className="flex-1 sm:flex-none"
                             onClick={() => actionMutation.mutate({ id: selectedContainer.id, action: 'stop' })}
                             disabled={actionMutation.isPending}
                           >
@@ -338,6 +339,7 @@ export default function AdminDocker() {
                         ) : (
                           <Button 
                             variant="outline" 
+                            className="flex-1 sm:flex-none"
                             onClick={() => actionMutation.mutate({ id: selectedContainer.id, action: 'start' })}
                             disabled={actionMutation.isPending}
                           >
@@ -346,6 +348,7 @@ export default function AdminDocker() {
                         )}
                         <Button 
                           variant="outline"
+                          className="flex-1 sm:flex-none"
                           onClick={() => actionMutation.mutate({ id: selectedContainer.id, action: 'restart' })}
                           disabled={actionMutation.isPending}
                         >
@@ -354,8 +357,8 @@ export default function AdminDocker() {
                       </div>
                     </div>
 
-                    <div className="border rounded-md">
-                      <table className="w-full text-sm">
+                    <div className="border rounded-md overflow-x-auto">
+                      <table className="w-full text-sm min-w-[500px]">
                         <tbody>
                           <tr className="border-b">
                             <td className="p-3 bg-muted/30 font-medium w-1/3">Container name</td>
@@ -378,25 +381,25 @@ export default function AdminDocker() {
                             <td className="p-3">{selectedContainer?.created ? new Date(selectedContainer.created * 1000).toLocaleString() : '-'}</td>
                           </tr>
                           <tr className="border-b">
-                            <td className="p-3 bg-muted/30 font-medium">Ports</td>
-                            <td className="p-3">
+                            <td className="p-3 bg-muted/30 font-medium align-top">Ports</td>
+                            <td className="p-3 break-all">
                               {selectedContainer?.ports?.map((p: any, i: number) => (
-                                <div key={i} className="text-blue-500">
+                                <div key={i} className="text-blue-500 text-xs sm:text-sm">
                                   {p.IP}:{p.PublicPort} --&gt; {p.PrivatePort}/{p.Type}
                                 </div>
                               )) || 'No published ports'}
                             </td>
                           </tr>
                           <tr className="border-b">
-                            <td className="p-3 bg-muted/30 font-medium">Networks</td>
-                            <td className="p-3">
+                            <td className="p-3 bg-muted/30 font-medium align-top">Networks</td>
+                            <td className="p-3 break-all">
                               {selectedContainer?.networkSettings?.networks ? 
                                 Object.keys(selectedContainer.networkSettings.networks).join(', ') : '-'}
                             </td>
                           </tr>
                           <tr>
-                            <td className="p-3 bg-muted/30 font-medium">Command</td>
-                            <td className="p-3 font-mono text-xs">{selectedContainer?.command}</td>
+                            <td className="p-3 bg-muted/30 font-medium align-top">Command</td>
+                            <td className="p-3 font-mono text-[10px] sm:text-xs break-all whitespace-pre-wrap">{selectedContainer?.command}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -433,10 +436,10 @@ export default function AdminDocker() {
                         {selectedContainer.mounts.map((mount: any, i: number) => (
                           <div key={i} className="p-3 border rounded-md text-sm">
                             <div className="font-medium mb-1 capitalize">{mount.Type} Mount</div>
-                            <div className="grid grid-cols-[100px_1fr] gap-1 text-muted-foreground">
-                              <span>Source:</span><span className="text-foreground break-all">{mount.Source}</span>
-                              <span>Destination:</span><span className="text-foreground break-all">{mount.Destination}</span>
-                              <span>Mode:</span><span className="text-foreground">{mount.Mode || mount.RW ? 'RW' : 'RO'}</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-[100px_1fr] gap-1 text-muted-foreground break-all">
+                              <span className="font-medium sm:font-normal text-xs sm:text-sm mt-1 sm:mt-0">Source:</span><span className="text-foreground">{mount.Source}</span>
+                              <span className="font-medium sm:font-normal text-xs sm:text-sm mt-1 sm:mt-0">Destination:</span><span className="text-foreground">{mount.Destination}</span>
+                              <span className="font-medium sm:font-normal text-xs sm:text-sm mt-1 sm:mt-0">Mode:</span><span className="text-foreground">{mount.Mode || mount.RW ? 'RW' : 'RO'}</span>
                             </div>
                           </div>
                         ))}
@@ -453,20 +456,20 @@ export default function AdminDocker() {
                     {selectedContainer?.networkSettings?.networks ? (
                       <div className="space-y-3">
                         {Object.entries(selectedContainer.networkSettings.networks).map(([name, net]: [string, any]) => (
-                          <div key={name} className="p-3 border rounded-md text-sm">
+                          <div key={name} className="p-3 border rounded-md text-sm overflow-x-auto">
                             <div className="font-medium mb-2">{name}</div>
-                            <table className="w-full">
+                            <table className="w-full min-w-[300px]">
                               <tbody>
                                 <tr className="border-b border-muted">
-                                  <td className="py-1 text-muted-foreground w-32">IP Address</td>
-                                  <td>{net.IPAddress || '-'}</td>
+                                  <td className="py-1 text-muted-foreground w-24 sm:w-32">IP Address</td>
+                                  <td className="break-all">{net.IPAddress || '-'}</td>
                                 </tr>
                                 <tr className="border-b border-muted">
-                                  <td className="py-1 text-muted-foreground">Gateway</td>
-                                  <td>{net.Gateway || '-'}</td>
+                                  <td className="py-1 text-muted-foreground w-24 sm:w-32">Gateway</td>
+                                  <td className="break-all">{net.Gateway || '-'}</td>
                                 </tr>
                                 <tr>
-                                  <td className="py-1 text-muted-foreground">Mac Address</td>
+                                  <td className="py-1 text-muted-foreground w-24 sm:w-32">Mac Address</td>
                                   <td className="break-all">{net.MacAddress || '-'}</td>
                                 </tr>
                               </tbody>
@@ -498,7 +501,7 @@ export default function AdminDocker() {
                 )}
 
                 {activeTab === "Real-time logs" && (
-                  <div className="space-y-2 h-full flex flex-col">
+                  <div className="space-y-2 h-full flex flex-col min-h-[300px]">
                     <div className="flex justify-between items-center flex-shrink-0">
                       <h3 className="font-medium">Container Logs</h3>
                       <Button variant="outline" size="sm" onClick={() => fetchLogs(selectedContainer.id)} disabled={loadingLogs}>
