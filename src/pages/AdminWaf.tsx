@@ -182,10 +182,6 @@ export default function AdminWaf() {
               </Popover>
             </div>
           </div>
-          <div className="flex items-center text-blue-500 font-medium">
-            <Clock className="w-4 h-4 mr-2" />
-            0
-          </div>
         </div>
 
         <div className="space-y-4">
