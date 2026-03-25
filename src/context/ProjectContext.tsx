@@ -108,7 +108,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     fetchProjects();
   }, [fetchProjects]);
 
-  const addProject = async (p: Omit<Project, "id" | "container_id" | "status" | "created_at" | "logs" | "user_id">) => {
+  const addProject = useCallback(async (p: Omit<Project, "id" | "container_id" | "status" | "created_at" | "logs" | "user_id">) => {
     try {
       const newProject = await apiRequest("/projects", "POST", p);
       setProjects((prev) => [...prev, { ...newProject, logs: [] }]);
@@ -116,9 +116,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       toast({ title: "Failed to create project", description: error.message, variant: "destructive" });
     }
-  };
+  }, [toast]);
 
-  const deleteProject = async (id: string) => {
+  const deleteProject = useCallback(async (id: string) => {
     try {
       await apiRequest(`/projects/${id}`, "DELETE");
       setProjects((prev) => prev.filter((p) => p.id !== id));
@@ -126,11 +126,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       toast({ title: "Failed to delete project", description: error.message, variant: "destructive" });
     }
-  };
+  }, [toast]);
 
-  const getProject = (id: string) => projects.find((p) => p.id === id);
+  const getProject = useCallback((id: string) => projects.find((p) => p.id === id), [projects]);
 
-  const deployProject = async (id: string) => {
+  const deployProject = useCallback(async (id: string) => {
     try {
       // Optimistic update
       setProjects((prev) =>
@@ -148,9 +148,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       );
       toast({ title: "Deployment failed", description: error.message, variant: "destructive" });
     }
-  };
+  }, [fetchProjects, toast]);
 
-  const stopProject = async (id: string) => {
+  const stopProject = useCallback(async (id: string) => {
     try {
       await apiRequest(`/stop/${id}`, "POST");
       setProjects((prev) =>
@@ -160,9 +160,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       toast({ title: "Failed to stop project", description: error.message, variant: "destructive" });
     }
-  };
+  }, [toast]);
 
-  const startProject = async (id: string) => {
+  const startProject = useCallback(async (id: string) => {
     try {
       await apiRequest(`/start/${id}`, "POST");
       setProjects((prev) =>
@@ -172,9 +172,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       toast({ title: "Failed to start project", description: error.message, variant: "destructive" });
     }
-  };
+  }, [toast]);
 
-  const restartProject = async (id: string) => {
+  const restartProject = useCallback(async (id: string) => {
     try {
        setProjects((prev) =>
         prev.map((p) => (p.id === id ? { ...p, status: "building" } : p))
@@ -188,9 +188,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       );
       toast({ title: "Failed to restart project", description: error.message, variant: "destructive" });
     }
-  };
+  }, [fetchProjects, toast]);
 
-  const refreshLogs = async (id: string) => {
+  const refreshLogs = useCallback(async (id: string) => {
     try {
       const logs = await apiRequest(`/logs/${id}`);
       setProjects((prev) =>
@@ -204,7 +204,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       }
       console.error("Failed to fetch logs", error);
     }
-  };
+  }, []);
 
   const subscribeToLogs = useCallback((projectId: string, callback: (log: any) => void) => {
     if (!socket) return () => {};
