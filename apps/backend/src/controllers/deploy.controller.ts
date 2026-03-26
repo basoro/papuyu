@@ -10,6 +10,7 @@ import {
   composeRestart, 
   composeStop,
   composeStart,
+  canonicalId,
 } from '../services/docker.service';
 
 const BUILD_DIR = process.env.BUILD_DIR || '/tmp/papuyu-builds';
@@ -70,7 +71,7 @@ export function restartProject(req: AuthRequest, res: Response) {
       logMessage(projectId, 'Compose services restarted');
     } else {
       if (!project.container_id) return res.status(400).json({ error: 'Container not running' });
-      restartContainer(`papuyu-${projectId}`);
+      restartContainer(`papuyu-${canonicalId(projectId)}`);
       logMessage(projectId, 'Container restarted');
     }
     res.json({ message: 'Project restarted' });
@@ -100,7 +101,7 @@ export function startProject(req: AuthRequest, res: Response) {
       composeStart(projectId, buildDir, project.compose_file);
       logMessage(projectId, 'Compose services started');
     } else {
-      startContainer(`papuyu-${projectId}`);
+      startContainer(`papuyu-${canonicalId(projectId)}`);
       logMessage(projectId, 'Container started');
     }
     db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('running', projectId);
@@ -131,7 +132,7 @@ export function stopProject(req: AuthRequest, res: Response) {
       composeStop(projectId, buildDir, project.compose_file);
       logMessage(projectId, 'Compose services stopped');
     } else {
-      stopContainer(`papuyu-${projectId}`);
+      stopContainer(`papuyu-${canonicalId(projectId)}`);
       logMessage(projectId, 'Container stopped');
     }
     db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('stopped', projectId);

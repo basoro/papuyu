@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { config } from '../config/env';
 
-function canonicalId(raw: string): string {
+export function canonicalId(raw: string): string {
   // lower-case, allow letters/digits/dash, collapse others to dash, trim length
   return raw.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50);
 }
