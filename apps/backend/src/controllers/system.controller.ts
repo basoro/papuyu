@@ -156,6 +156,23 @@ export async function pruneDockerSystem(req: AuthRequest, res: Response) {
   }
 }
 
+export async function updateRestartPolicy(req: AuthRequest, res: Response) {
+  const { id } = req.params;
+  const { policy } = req.body;
+  try {
+    const validPolicies = ['no', 'on-failure', 'always', 'unless-stopped'];
+    if (!validPolicies.includes(policy)) {
+      return res.status(400).json({ error: 'Invalid restart policy' });
+    }
+    
+    execFileSync('docker', ['update', '--restart', policy, id]);
+    res.json({ message: `Container ${id} restart policy updated to ${policy}` });
+  } catch (error: any) {
+    console.error(`Update restart policy error (${policy} on ${id}):`, error);
+    res.status(500).json({ error: `Failed to update restart policy` });
+  }
+}
+
 export async function getWafStats(req: AuthRequest, res: Response) {
   try {
     const { dateFilter, startDate, endDate } = req.query;

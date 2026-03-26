@@ -12,6 +12,7 @@ import systemRoutes from './routes/system.routes';
 
 import http from 'http';
 import { Server, Socket } from 'socket.io';
+import { spawn } from 'child_process';
 import { initSocket } from './services/queue.service';
 import { startWafLogWatcher } from './services/waf.service';
 
@@ -32,6 +33,46 @@ io.on('connection', (socket: Socket) => {
   socket.on('join-project', (projectId: string) => {
     socket.join(`project-${projectId}`);
     console.log(`Socket ${socket.id} joined project-${projectId}`);
+  });
+
+  socket.on('start-terminal', (containerId: string) => {
+    const proc = spawn('docker', ['exec', '-i', containerId, '/bin/sh']);
+    
+    proc.stdout.on('data', (data) => {
+      socket.emit(`terminal-output-${containerId}`, data.toString());
+    });
+    proc.stderr.on('data', (data) => {
+      socket.emit(`terminal-output-${containerId}`, data.toString());
+    });
+    
+    socket.on(`terminal-input-${containerId}`, (input: string) => {
+      if (!proc.killed) proc.stdin.write(input);
+    });
+    
+    const onDisconnect = () => proc.kill();
+    socket.on('disconnect', onDisconnect);
+    socket.on(`stop-terminal-${containerId}`, () => {
+      proc.kill();
+      socket.off('disconnect', onDisconnect);
+    });
+  });
+
+  socket.on('stream-container-logs', (containerId: string) => {
+    const proc = spawn('docker', ['logs', '-f', '--tail', '100', containerId]);
+    
+    proc.stdout.on('data', (data) => {
+      socket.emit(`container-log-data-${containerId}`, data.toString());
+    });
+    proc.stderr.on('data', (data) => {
+      socket.emit(`container-log-data-${containerId}`, data.toString());
+    });
+    
+    const onDisconnect = () => proc.kill();
+    socket.on('disconnect', onDisconnect);
+    socket.on(`stop-container-logs-${containerId}`, () => {
+      proc.kill();
+      socket.off('disconnect', onDisconnect);
+    });
   });
 
   socket.on('disconnect', () => {

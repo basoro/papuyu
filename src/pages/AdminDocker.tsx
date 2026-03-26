@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { apiRequest } from "@/lib/api";
@@ -19,6 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { Box, Layers, HardDrive, Network, Database, Server, RefreshCw, Terminal, Search, Trash2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { io } from "socket.io-client";
+import { Terminal as XTerminal } from "xterm";
+import { FitAddon } from "xterm-addon-fit";
+import "xterm/css/xterm.css";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Helper function to format bytes to GB/MB
 function formatBytes(bytes: number) {
@@ -27,6 +32,78 @@ function formatBytes(bytes: number) {
   const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
+const socketUrl = import.meta.env.VITE_API_URL || "";
+const socket = io(socketUrl, { autoConnect: false });
+
+function ContainerTerminal({ containerId }: { containerId: string }) {
+  const terminalRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (!terminalRef.current) return;
+    socket.connect();
+    
+    const term = new XTerminal({ cursorBlink: true, theme: { background: '#000000' }});
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(terminalRef.current);
+    fitAddon.fit();
+    
+    socket.emit('start-terminal', containerId);
+    
+    const onOutput = (data: string) => term.write(data);
+    socket.on(`terminal-output-${containerId}`, onOutput);
+    
+    term.onData((data) => {
+      socket.emit(`terminal-input-${containerId}`, data);
+    });
+    
+    const resizeObserver = new ResizeObserver(() => fitAddon.fit());
+    resizeObserver.observe(terminalRef.current);
+    
+    return () => {
+      resizeObserver.disconnect();
+      socket.emit(`stop-terminal-${containerId}`);
+      socket.off(`terminal-output-${containerId}`, onOutput);
+      term.dispose();
+    };
+  }, [containerId]);
+
+  return <div ref={terminalRef} className="h-full w-full min-h-[400px] overflow-hidden rounded-md bg-black p-2" />;
+}
+
+function ContainerLogs({ containerId }: { containerId: string }) {
+  const [logs, setLogs] = useState<string[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    socket.connect();
+    setLogs([]);
+    socket.emit('stream-container-logs', containerId);
+    
+    const onData = (data: string) => {
+      setLogs(prev => [...prev, data].slice(-1000));
+    };
+    
+    socket.on(`container-log-data-${containerId}`, onData);
+    
+    return () => {
+      socket.emit(`stop-container-logs-${containerId}`);
+      socket.off(`container-log-data-${containerId}`, onData);
+    };
+  }, [containerId]);
+  
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  return (
+    <div className="flex-1 bg-black text-green-400 p-4 rounded-md overflow-y-auto font-mono text-xs whitespace-pre-wrap flex flex-col min-h-[400px]">
+      {logs.length === 0 ? "Listening for logs stream..." : logs.join('')}
+      <div ref={logsEndRef} />
+    </div>
+  );
 }
 
 export default function AdminDocker() {
@@ -90,23 +167,28 @@ export default function AdminDocker() {
     },
   });
 
-  const fetchLogs = async (id: string) => {
-    setLoadingLogs(true);
-    try {
-      const data = await apiRequest(`/system/docker/containers/${id}/logs`);
-      setContainerLogs(data.logs);
-    } catch (error) {
-      setContainerLogs("Failed to fetch logs.");
-    }
-    setLoadingLogs(false);
-  };
+  const restartPolicyMutation = useMutation({
+    mutationFn: ({ id, policy }: { id: string; policy: string }) =>
+      apiRequest(`/system/docker/containers/${id}/restart-policy`, "POST", { policy }),
+    onSuccess: (data) => {
+      toast({
+        title: "Restart Policy Updated",
+        description: data.message || "Successfully updated container restart policy.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["dockerContainers"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update restart policy.",
+        variant: "destructive",
+      });
+    },
+  });
 
+  // Remove polling fetchLogs to use WebSocket stream instead
   useEffect(() => {
-    if (selectedContainer && activeTab === "Real-time logs") {
-      fetchLogs(selectedContainer.id);
-      const interval = setInterval(() => fetchLogs(selectedContainer.id), 5000);
-      return () => clearInterval(interval);
-    }
+    // Reset tabs or perform other required acts when selected container changes
   }, [selectedContainer, activeTab]);
 
   const filteredContainers = containers?.filter((c: any) => 
@@ -408,12 +490,8 @@ export default function AdminDocker() {
                 )}
 
                 {activeTab === "Container terminal" && (
-                  <div className="h-full flex items-center justify-center text-muted-foreground border border-dashed rounded-md bg-muted/5">
-                    <div className="text-center space-y-2">
-                      <Terminal className="h-8 w-8 mx-auto opacity-50" />
-                      <p>Web terminal integration requires WebSocket setup.</p>
-                      <p className="text-xs">Feature coming soon.</p>
-                    </div>
+                  <div className="h-full w-full">
+                    <ContainerTerminal containerId={selectedContainer.id} />
                   </div>
                 )}
 
@@ -434,13 +512,28 @@ export default function AdminDocker() {
                     {selectedContainer?.mounts?.length > 0 ? (
                       <div className="space-y-3">
                         {selectedContainer.mounts.map((mount: any, i: number) => (
-                          <div key={i} className="p-3 border rounded-md text-sm">
-                            <div className="font-medium mb-1 capitalize">{mount.Type} Mount</div>
-                            <div className="grid grid-cols-1 sm:grid-cols-[100px_1fr] gap-1 text-muted-foreground break-all">
-                              <span className="font-medium sm:font-normal text-xs sm:text-sm mt-1 sm:mt-0">Source:</span><span className="text-foreground">{mount.Source}</span>
-                              <span className="font-medium sm:font-normal text-xs sm:text-sm mt-1 sm:mt-0">Destination:</span><span className="text-foreground">{mount.Destination}</span>
-                              <span className="font-medium sm:font-normal text-xs sm:text-sm mt-1 sm:mt-0">Mode:</span><span className="text-foreground">{mount.Mode || mount.RW ? 'RW' : 'RO'}</span>
-                            </div>
+                          <div key={i} className="p-3 border rounded-md text-sm bg-muted/20">
+                            <div className="font-semibold mb-2 capitalize text-primary border-b pb-1">{mount.Type} Mount</div>
+                            <table className="w-full text-left border-collapse min-w-[300px]">
+                              <tbody>
+                                <tr className="border-b border-muted">
+                                  <th className="py-2 text-muted-foreground font-medium w-32">Source</th>
+                                  <td className="py-2 break-all text-foreground">{mount.Source}</td>
+                                </tr>
+                                <tr className="border-b border-muted">
+                                  <th className="py-2 text-muted-foreground font-medium w-32">Destination</th>
+                                  <td className="py-2 break-all text-foreground">{mount.Destination}</td>
+                                </tr>
+                                <tr>
+                                  <th className="py-2 text-muted-foreground font-medium w-32">Mode (RW/RO)</th>
+                                  <td className="py-2 text-foreground">
+                                    <span className={`px-2 py-0.5 rounded text-xs ${mount.Mode === 'rw' || mount.RW ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
+                                      {mount.Mode || (mount.RW ? 'RW' : 'RO')}
+                                    </span>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         ))}
                       </div>
@@ -456,21 +549,39 @@ export default function AdminDocker() {
                     {selectedContainer?.networkSettings?.networks ? (
                       <div className="space-y-3">
                         {Object.entries(selectedContainer.networkSettings.networks).map(([name, net]: [string, any]) => (
-                          <div key={name} className="p-3 border rounded-md text-sm overflow-x-auto">
-                            <div className="font-medium mb-2">{name}</div>
-                            <table className="w-full min-w-[300px]">
+                          <div key={name} className="p-3 border rounded-md text-sm overflow-x-auto bg-muted/20">
+                            <div className="font-semibold mb-2 text-primary border-b pb-1 flex items-center gap-2">
+                              <Network className="h-4 w-4" /> Network: {name}
+                            </div>
+                            <table className="w-full text-left border-collapse min-w-[300px]">
                               <tbody>
                                 <tr className="border-b border-muted">
-                                  <td className="py-1 text-muted-foreground w-24 sm:w-32">IP Address</td>
-                                  <td className="break-all">{net.IPAddress || '-'}</td>
+                                  <th className="py-2 text-muted-foreground font-medium w-32">IP Address</th>
+                                  <td className="py-2 break-all">{net.IPAddress || '-'}</td>
                                 </tr>
                                 <tr className="border-b border-muted">
-                                  <td className="py-1 text-muted-foreground w-24 sm:w-32">Gateway</td>
-                                  <td className="break-all">{net.Gateway || '-'}</td>
+                                  <th className="py-2 text-muted-foreground font-medium w-32">Gateway</th>
+                                  <td className="py-2 break-all">{net.Gateway || '-'}</td>
+                                </tr>
+                                <tr className="border-b border-muted">
+                                  <th className="py-2 text-muted-foreground font-medium w-32">Mac Address</th>
+                                  <td className="py-2 break-all">{net.MacAddress || '-'}</td>
                                 </tr>
                                 <tr>
-                                  <td className="py-1 text-muted-foreground w-24 sm:w-32">Mac Address</td>
-                                  <td className="break-all">{net.MacAddress || '-'}</td>
+                                  <th className="py-2 text-muted-foreground font-medium w-32">Port Mappings</th>
+                                  <td className="py-2 break-all">
+                                    {selectedContainer?.ports?.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {selectedContainer.ports.map((p: any, i: number) => (
+                                          <div key={i} className="inline-block bg-muted/50 px-2 py-1 rounded text-xs mr-2 mb-1">
+                                            {p.IP || '*'}:{p.PublicPort || '-'} &rarr; {p.PrivatePort}/{p.Type}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground italic">None setup on host</span>
+                                    )}
+                                  </td>
                                 </tr>
                               </tbody>
                             </table>
@@ -490,28 +601,37 @@ export default function AdminDocker() {
                       <p className="mb-4 text-muted-foreground">
                         The restart policy controls whether Docker should automatically restart the container when it exits.
                       </p>
-                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded">
-                        <span className="font-medium">Current Policy</span>
-                        <span className="px-2 py-1 bg-background border rounded font-mono">
-                          {selectedContainer?.hostConfig?.RestartPolicy?.Name || 'no'}
-                        </span>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-muted/30 rounded border">
+                        <div className="space-y-1">
+                          <span className="font-medium block">Current Policy</span>
+                          <span className="text-xs text-muted-foreground">Change the container's restart behavior.</span>
+                        </div>
+                        <Select 
+                          disabled={restartPolicyMutation.isPending}
+                          value={selectedContainer?.hostConfig?.RestartPolicy?.Name || 'no'}
+                          onValueChange={(value) => restartPolicyMutation.mutate({ id: selectedContainer.id, policy: value })}
+                        >
+                          <SelectTrigger className="w-full sm:w-[180px]">
+                            <SelectValue placeholder="Select Policy" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="no">No</SelectItem>
+                            <SelectItem value="on-failure">On-Failure</SelectItem>
+                            <SelectItem value="always">Always</SelectItem>
+                            <SelectItem value="unless-stopped">Unless-Stopped</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {activeTab === "Real-time logs" && (
-                  <div className="space-y-2 h-full flex flex-col min-h-[300px]">
+                  <div className="space-y-2 h-full flex flex-col min-h-[400px]">
                     <div className="flex justify-between items-center flex-shrink-0">
                       <h3 className="font-medium">Container Logs</h3>
-                      <Button variant="outline" size="sm" onClick={() => fetchLogs(selectedContainer.id)} disabled={loadingLogs}>
-                        <RefreshCw className={`h-4 w-4 mr-2 ${loadingLogs ? 'animate-spin' : ''}`} />
-                        Refresh
-                      </Button>
                     </div>
-                    <div className="flex-1 bg-black text-green-400 p-4 rounded-md overflow-y-auto font-mono text-xs whitespace-pre-wrap">
-                      {loadingLogs && !containerLogs ? "Loading logs..." : containerLogs || "No logs available."}
-                    </div>
+                    <ContainerLogs containerId={selectedContainer.id} />
                   </div>
                 )}
 
