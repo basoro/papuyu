@@ -13,6 +13,7 @@ import systemRoutes from './routes/system.routes';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
 import { spawn } from 'child_process';
+import * as pty from 'node-pty';
 import { initSocket } from './services/queue.service';
 import { startWafLogWatcher } from './services/waf.service';
 
@@ -36,25 +37,37 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('start-terminal', (containerId: string) => {
-    const proc = spawn('docker', ['exec', '-i', containerId, '/bin/sh']);
-    
-    proc.stdout.on('data', (data) => {
-      socket.emit(`terminal-output-${containerId}`, data.toString());
-    });
-    proc.stderr.on('data', (data) => {
-      socket.emit(`terminal-output-${containerId}`, data.toString());
-    });
-    
-    socket.on(`terminal-input-${containerId}`, (input: string) => {
-      if (!proc.killed) proc.stdin.write(input);
-    });
-    
-    const onDisconnect = () => proc.kill();
-    socket.on('disconnect', onDisconnect);
-    socket.on(`stop-terminal-${containerId}`, () => {
-      proc.kill();
-      socket.off('disconnect', onDisconnect);
-    });
+    try {
+      const ptyProcess = pty.spawn('docker', ['exec', '-it', containerId, '/bin/sh'], {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 24,
+        cwd: process.env.HOME || '/',
+        env: process.env as any
+      });
+      
+      ptyProcess.onData((data) => {
+        socket.emit(`terminal-output-${containerId}`, data);
+      });
+      
+      socket.on(`terminal-input-${containerId}`, (input: string) => {
+        try { ptyProcess.write(input); } catch (e) {}
+      });
+
+      socket.on(`terminal-resize-${containerId}`, ({ cols, rows }) => {
+        try { ptyProcess.resize(cols, rows); } catch (e) {}
+      });
+      
+      const onDisconnect = () => { try { ptyProcess.kill(); } catch (e) {} };
+      socket.on('disconnect', onDisconnect);
+      socket.on(`stop-terminal-${containerId}`, () => {
+        onDisconnect();
+        socket.off('disconnect', onDisconnect);
+      });
+    } catch (e) {
+      console.error('Failed to spawn pty:', e);
+      socket.emit(`terminal-output-${containerId}`, '\\r\\nFailed to start terminal.\\r\\n');
+    }
   });
 
   socket.on('stream-container-logs', (containerId: string) => {

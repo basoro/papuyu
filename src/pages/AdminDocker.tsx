@@ -59,8 +59,17 @@ function ContainerTerminal({ containerId }: { containerId: string }) {
       socket.emit(`terminal-input-${containerId}`, data);
     });
     
-    const resizeObserver = new ResizeObserver(() => fitAddon.fit());
+    const resizeObserver = new ResizeObserver(() => {
+      fitAddon.fit();
+      socket.emit(`terminal-resize-${containerId}`, { cols: term.cols, rows: term.rows });
+    });
     resizeObserver.observe(terminalRef.current);
+    
+    // Initial resize after a short delay
+    setTimeout(() => {
+      fitAddon.fit();
+      socket.emit(`terminal-resize-${containerId}`, { cols: term.cols, rows: term.rows });
+    }, 100);
     
     return () => {
       resizeObserver.disconnect();
