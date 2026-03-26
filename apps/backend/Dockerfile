@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install ALL dependencies (including devDependencies)
-RUN npm install --include=dev
+RUN apk add --no-cache python3 make g++ && npm install --include=dev
 
 # Copy source code
 COPY . .
@@ -27,7 +27,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm install --production
+RUN apk add --no-cache python3 make g++ && npm install --production && apk del python3 make g++
 
 # Copy built artifacts from builder stage
 COPY --from=builder /app/dist ./dist
