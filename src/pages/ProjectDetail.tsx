@@ -84,7 +84,10 @@ export default function ProjectDetail() {
   const baseDomain = envDomain && envDomain !== 'localhost' && envDomain !== serverIp ? envDomain : (serverIp ? `${serverIp}.nip.io` : 'localhost');
   const protocol = import.meta.env.VITE_FORCE_HTTPS === 'true' ? 'https' : 'http';
   
-  const publicUrl = `${protocol}://${project.subdomain || safeProjectId}.${baseDomain}`;
+  const host = project.subdomain 
+    ? (project.subdomain.includes('.') ? project.subdomain : `${project.subdomain}.${baseDomain}`)
+    : `${safeProjectId}.${baseDomain}`;
+  const publicUrl = `${protocol}://${host}`;
 
   return (
     <DashboardLayout>
