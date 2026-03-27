@@ -10,6 +10,7 @@ services:
         - VITE_BASE_DOMAIN=${DOMAIN:-${SERVER_IP:-localhost}}
         - VITE_SERVER_IP=${SERVER_IP:-localhost}
         - VITE_FORCE_HTTPS=${TRAEFIK_HTTPS_ENABLED:-false}
+        - VITE_ADDITIONAL_DOMAINS=${ADDITIONAL_DOMAINS:-}
     ports:
       - "5173:80"
     labels:
@@ -24,6 +25,7 @@ services:
       - VITE_BASE_DOMAIN=${DOMAIN:-${SERVER_IP:-localhost}}
       - VITE_SERVER_IP=${SERVER_IP:-localhost}
       - VITE_FORCE_HTTPS=${TRAEFIK_HTTPS_ENABLED:-false}
+      - VITE_ADDITIONAL_DOMAINS=${ADDITIONAL_DOMAINS:-}
     networks:
       - papuyu-network
 

@@ -9,8 +9,8 @@ export function canonicalId(raw: string): string {
 }
 
 function validateSubdomain(s: string): void {
-  const ok = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(s);
-  if (!ok) throw new Error('Invalid subdomain');
+  const ok = /^[a-z0-9]([a-z0-9.-]{0,253}[a-z0-9])?$/.test(s);
+  if (!ok) throw new Error('Invalid subdomain or domain format');
 }
 
 function runDocker(args: string[], opts?: { timeout?: number; stdio?: 'pipe' | 'inherit'; cwd?: string }): string {
@@ -116,7 +116,9 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
   if (subdomain) {
     validateSubdomain(subdomain);
   }
-  const host = subdomain ? `${subdomain}.${domain}` : `${safeProjectId}.${domain}`;
+  const host = subdomain 
+    ? (subdomain.includes('.') ? subdomain : `${subdomain}.${domain}`) 
+    : `${safeProjectId}.${domain}`;
 
   const labelArgs = [
     '--label', 'traefik.enable=true',
@@ -398,7 +400,9 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
       // Host rule for Traefik 
       // Uses config.domain which defaults to nip.io IP fallback or the actual domain from .env
       const domain = config.domain;
-      const host = subdomain ? `${subdomain}.${domain}` : `${safeProjectId}.${domain}`;
+      const host = subdomain 
+        ? (subdomain.includes('.') ? subdomain : `${subdomain}.${domain}`) 
+        : `${safeProjectId}.${domain}`;
       
       let wafLabels = '';
       if (wafEnabled) {

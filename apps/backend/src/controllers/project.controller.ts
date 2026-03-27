@@ -52,8 +52,8 @@ export function createProject(req: AuthRequest, res: Response) {
     return res.status(400).json({ error: 'Name and Git Repository are required' });
   }
 
-  if (subdomain && !/^[a-z0-9-]+$/.test(subdomain)) {
-    return res.status(400).json({ error: 'Subdomain must be lowercase alphanumeric with hyphens' });
+  if (subdomain && !/^[a-z0-9.-]+$/.test(subdomain)) {
+    return res.status(400).json({ error: 'Subdomain must be lowercase alphanumeric with hyphens or dots' });
   }
 
   // Enforce RAM limits based on role

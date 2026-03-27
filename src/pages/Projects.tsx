@@ -23,7 +23,10 @@ export default function Projects() {
   const serverIp = import.meta.env.VITE_SERVER_IP;
   const envDomain = import.meta.env.VITE_BASE_DOMAIN;
   const baseDomain = envDomain && envDomain !== 'localhost' && envDomain !== serverIp ? envDomain : (serverIp ? `${serverIp}.nip.io` : 'localhost');
+  const additionalDomainsStr = import.meta.env.VITE_ADDITIONAL_DOMAINS;
+  const additionalDomains = additionalDomainsStr ? additionalDomainsStr.split(',').map((d: string) => d.trim()).filter(Boolean) : [];
   
+  const [selectedDomain, setSelectedDomain] = useState<string>(baseDomain);
   const [form, setForm] = useState({
     name: "",
     git_repository: "",
@@ -40,6 +43,12 @@ export default function Projects() {
 
   const handleCreate = async () => {
     if (!form.name || !form.git_repository) return;
+    
+    let finalSubdomain = form.subdomain;
+    if (finalSubdomain && selectedDomain !== 'custom' && selectedDomain !== baseDomain) {
+      finalSubdomain = `${finalSubdomain}.${selectedDomain}`;
+    }
+
     setLoading(true);
     await addProject({
       name: form.name,
@@ -50,7 +59,7 @@ export default function Projects() {
       compose_file: form.compose_file,
       port: parseInt(form.port) || 3000,
       env_vars: form.env_vars,
-      subdomain: form.subdomain || undefined,
+      subdomain: finalSubdomain || undefined,
       waf_enabled: form.waf_enabled,
       ram_limit: form.ram_limit ? parseInt(form.ram_limit) : 0,
     });
@@ -68,6 +77,7 @@ export default function Projects() {
       waf_enabled: false,
       ram_limit: "0",
     });
+    setSelectedDomain(baseDomain);
     setShowForm(false);
   };
 
@@ -208,10 +218,26 @@ export default function Projects() {
                 <Input placeholder="my-app" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="bg-background" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Subdomain (Optional)</Label>
+                <Label className="text-xs text-muted-foreground">{selectedDomain === 'custom' ? 'Custom Domain (TLD)' : 'Subdomain (Optional)'}</Label>
                 <div className="flex items-center gap-2">
-                    <Input placeholder="subdomain" value={form.subdomain} onChange={e => setForm({ ...form, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} className="bg-background font-mono text-sm" />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">.{baseDomain}</span>
+                    <Input 
+                      placeholder={selectedDomain === 'custom' ? "example.com" : "subdomain"} 
+                      value={form.subdomain} 
+                      onChange={e => setForm({ ...form, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, '') })} 
+                      className="bg-background font-mono text-sm" 
+                    />
+                    <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+                      <SelectTrigger className="w-[180px] bg-background text-xs h-9">
+                        <SelectValue placeholder="Select domain" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={baseDomain}>.{baseDomain}</SelectItem>
+                        {additionalDomains.map((domain: string) => (
+                          <SelectItem key={domain} value={domain}>.{domain}</SelectItem>
+                        ))}
+                        <SelectItem value="custom">Custom TLD</SelectItem>
+                      </SelectContent>
+                    </Select>
                 </div>
               </div>
               <div className="space-y-1.5">
