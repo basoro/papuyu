@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { apiRequest, API_URL } from "../lib/api";
+import { apiRequest } from "../lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { io, Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
+import { createPapuyuSocket } from "@/lib/socket";
 
 export interface Project {
   id: string;
@@ -74,13 +75,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
 
   useEffect(() => {
-    // Determine socket URL: if API_URL is relative or localhost, 
-    // we might need to be careful. socket.io-client handles this well 
-    // if we pass the full URL.
-    socket = io(API_URL, {
-      transports: ['websocket', 'polling'], // Try websocket first
-      reconnectionAttempts: 5,
-    });
+    socket = createPapuyuSocket();
 
     socket.on("connect", () => {
       console.log("WebSocket connected successfully", socket.id);

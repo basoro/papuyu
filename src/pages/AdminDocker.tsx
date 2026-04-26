@@ -19,11 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { Box, Layers, HardDrive, Network, Database, Server, RefreshCw, Terminal, Search, Trash2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { io } from "socket.io-client";
 import { Terminal as XTerminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { createPapuyuSocket } from "@/lib/socket";
 
 // Helper function to format bytes to GB/MB
 function formatBytes(bytes: number) {
@@ -34,8 +34,7 @@ function formatBytes(bytes: number) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
-const socketUrl = import.meta.env.VITE_API_URL || "";
-const socket = io(socketUrl, { autoConnect: false });
+const socket = createPapuyuSocket({ autoConnect: false });
 
 function ContainerTerminal({ containerId }: { containerId: string }) {
   const terminalRef = useRef<HTMLDivElement>(null);
