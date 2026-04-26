@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS projects (
   branch          TEXT DEFAULT 'main',
   project_type    TEXT DEFAULT 'dockerfile', -- 'dockerfile' | 'compose'
   dockerfile_path TEXT DEFAULT 'Dockerfile',
+  dockerfile_source TEXT DEFAULT 'repo', -- 'repo' | 'upload' | 'textarea'
+  dockerfile_content TEXT,               -- optional custom Dockerfile content
   compose_file    TEXT DEFAULT 'docker-compose.yml',
   port            INTEGER DEFAULT 3000,
   env_vars        TEXT,                  -- JSON stringified: [{"key": "DB_HOST", "value": "localhost"}]
@@ -23,6 +25,7 @@ CREATE TABLE IF NOT EXISTS projects (
   container_id    TEXT,                  -- Docker container ID
   status          TEXT DEFAULT 'idle',   -- idle | building | running | stopped | failed
   user_id         INTEGER NOT NULL,
+  ram_limit       INTEGER DEFAULT 0,
   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

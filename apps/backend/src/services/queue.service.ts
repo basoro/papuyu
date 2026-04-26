@@ -3,6 +3,8 @@ import { Server } from 'socket.io';
 import IORedis from 'ioredis';
 import { config } from '../config/env';
 import db from '../db/database';
+import fs from 'fs';
+import path from 'path';
 import { cloneRepository } from './git.service';
 import { 
   buildImage, 
@@ -37,6 +39,12 @@ function logMessage(projectId: string, message: string, level = 'info') {
   if (io) {
     io.to(`project-${projectId}`).emit('log', { message: logEntry, level });
   }
+}
+
+function writeCustomDockerfile(buildDir: string, dockerfilePath: string, dockerfileContent: string) {
+  const targetPath = path.join(buildDir, dockerfilePath);
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, dockerfileContent, 'utf-8');
 }
 
 const worker = new Worker('deployment-queue', async (job: Job) => {
@@ -84,6 +92,11 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
        containerId = 'compose-group';
 
     } else {
+      if (project.dockerfile_source && project.dockerfile_source !== 'repo' && project.dockerfile_content) {
+        writeCustomDockerfile(buildDir, project.dockerfile_path, project.dockerfile_content);
+        logMessage(projectId, `Custom Dockerfile written to ${project.dockerfile_path}`);
+      }
+
       // Replace Port in Dockerfile
       if (project.port) {
         replacePortInDockerfile(buildDir, project.dockerfile_path, project.port);

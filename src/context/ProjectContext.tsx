@@ -11,6 +11,8 @@ export interface Project {
   branch: string;
   project_type: "dockerfile" | "compose";
   dockerfile_path: string;
+  dockerfile_source?: "repo" | "upload" | "textarea";
+  dockerfile_content?: string | null;
   compose_file: string;
   port: number;
   env_vars?: { key: string; value: string }[];
@@ -25,10 +27,27 @@ export interface Project {
   logs: string[];
 }
 
+export interface CreateProjectPayload {
+  name: string;
+  git_repository: string;
+  branch: string;
+  project_type: "dockerfile" | "compose";
+  dockerfile_path: string;
+  dockerfile_source?: "repo" | "upload" | "textarea";
+  dockerfile_content?: string;
+  compose_file: string;
+  port: number;
+  env_vars?: { key: string; value: string }[];
+  subdomain?: string;
+  waf_enabled?: boolean;
+  ram_limit: number;
+  user_email?: string;
+}
+
 interface ProjectContextType {
   projects: Project[];
   isLoading: boolean;
-  addProject: (p: Omit<Project, "id" | "container_id" | "status" | "created_at" | "logs" | "user_id">) => Promise<void>;
+  addProject: (p: CreateProjectPayload) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   getProject: (id: string) => Project | undefined;
   deployProject: (id: string) => Promise<void>;
@@ -108,7 +127,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     fetchProjects();
   }, [fetchProjects]);
 
-  const addProject = useCallback(async (p: Omit<Project, "id" | "container_id" | "status" | "created_at" | "logs" | "user_id">) => {
+  const addProject = useCallback(async (p: CreateProjectPayload) => {
     try {
       const newProject = await apiRequest("/projects", "POST", p);
       setProjects((prev) => [...prev, { ...newProject, logs: [] }]);

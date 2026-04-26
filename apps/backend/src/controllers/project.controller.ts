@@ -4,8 +4,38 @@ const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 6);
 import db from '../db/database';
 import { AuthRequest } from '../middleware/auth';
 import { deploymentQueue } from '../services/queue.service';
+import path from 'path';
 
 import { execSync } from 'child_process';
+
+const PROJECT_PUBLIC_COLUMNS = `
+  id,
+  name,
+  git_repository,
+  branch,
+  project_type,
+  dockerfile_path,
+  compose_file,
+  port,
+  env_vars,
+  subdomain,
+  waf_enabled,
+  ram_limit,
+  dockerfile_source,
+  container_id,
+  status,
+  user_id,
+  created_at
+`;
+
+function isSafeProjectPath(filePath: string): boolean {
+  if (!filePath || path.isAbsolute(filePath)) {
+    return false;
+  }
+
+  const normalized = path.posix.normalize(filePath.replace(/\\/g, '/'));
+  return normalized !== '..' && !normalized.startsWith('../');
+}
 
 export function getProjectEnv(req: AuthRequest, res: Response) {
   const { url } = req.body;
@@ -44,9 +74,28 @@ export function getProjectEnv(req: AuthRequest, res: Response) {
 }
 
 export function createProject(req: AuthRequest, res: Response) {
-  const { name, git_repository, branch, dockerfile_path, port, project_type, compose_file, env_vars, subdomain, waf_enabled, ram_limit } = req.body;
+  const {
+    name,
+    git_repository,
+    branch,
+    dockerfile_path,
+    port,
+    project_type,
+    compose_file,
+    env_vars,
+    subdomain,
+    waf_enabled,
+    ram_limit,
+    dockerfile_source,
+    dockerfile_content,
+  } = req.body;
   const userId = req.userId!;
   const userRole = req.userRole;
+  const finalProjectType = project_type || 'dockerfile';
+  const finalDockerfilePath = dockerfile_path || 'Dockerfile';
+  const finalComposeFile = compose_file || 'docker-compose.yml';
+  const finalDockerfileSource = dockerfile_source || 'repo';
+  const finalDockerfileContent = typeof dockerfile_content === 'string' ? dockerfile_content.trim() : '';
 
   if (!name || !git_repository) {
     return res.status(400).json({ error: 'Name and Git Repository are required' });
@@ -54,6 +103,24 @@ export function createProject(req: AuthRequest, res: Response) {
 
   if (subdomain && !/^[a-z0-9.-]+$/.test(subdomain)) {
     return res.status(400).json({ error: 'Subdomain must be lowercase alphanumeric with hyphens or dots' });
+  }
+
+  if (finalProjectType === 'dockerfile') {
+    if (!isSafeProjectPath(finalDockerfilePath)) {
+      return res.status(400).json({ error: 'Dockerfile path must be a safe relative path inside the repository' });
+    }
+
+    if (!['repo', 'upload', 'textarea'].includes(finalDockerfileSource)) {
+      return res.status(400).json({ error: 'Invalid Dockerfile source' });
+    }
+
+    if (finalDockerfileSource !== 'repo' && !finalDockerfileContent) {
+      return res.status(400).json({ error: 'Dockerfile content is required for upload or textarea source' });
+    }
+  }
+
+  if (finalProjectType === 'compose' && !isSafeProjectPath(finalComposeFile)) {
+    return res.status(400).json({ error: 'Compose file path must be a safe relative path inside the repository' });
   }
 
   // Enforce RAM limits based on role
@@ -68,8 +135,12 @@ export function createProject(req: AuthRequest, res: Response) {
   
   try {
     const stmt = db.prepare(`
-      INSERT INTO projects (id, name, git_repository, branch, dockerfile_path, port, user_id, project_type, compose_file, env_vars, subdomain, waf_enabled, ram_limit)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (
+        id, name, git_repository, branch, dockerfile_path, port, user_id,
+        project_type, compose_file, env_vars, subdomain, waf_enabled, ram_limit,
+        dockerfile_source, dockerfile_content
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     stmt.run(
@@ -77,18 +148,20 @@ export function createProject(req: AuthRequest, res: Response) {
       name,
       git_repository,
       branch || 'main',
-      dockerfile_path || 'Dockerfile',
+      finalDockerfilePath,
       port || 80,
       userId,
-      project_type || 'dockerfile',
-      compose_file || 'docker-compose.yml',
+      finalProjectType,
+      finalComposeFile,
       JSON.stringify(env_vars || []),
       subdomain || null,
       waf_enabled ? 1 : 0,
-      finalRamLimit
+      finalRamLimit,
+      finalProjectType === 'dockerfile' ? finalDockerfileSource : 'repo',
+      finalProjectType === 'dockerfile' && finalDockerfileSource !== 'repo' ? finalDockerfileContent : null
     );
 
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+    const project = db.prepare(`SELECT ${PROJECT_PUBLIC_COLUMNS} FROM projects WHERE id = ?`).get(id);
     res.status(201).json(project);
   } catch (err: any) {
     if (err.message.includes('UNIQUE constraint failed: projects.subdomain')) {
@@ -105,13 +178,13 @@ export function listProjects(req: AuthRequest, res: Response) {
   if (userRole === 'admin') {
     // Admin can see all projects
     const projects = db.prepare(`
-      SELECT projects.*, users.email as user_email 
+      SELECT ${PROJECT_PUBLIC_COLUMNS}, users.email as user_email 
       FROM projects 
       LEFT JOIN users ON projects.user_id = users.id
     `).all();
     return res.json(projects);
   } else {
-    const projects = db.prepare('SELECT * FROM projects WHERE user_id = ?').all(userId);
+    const projects = db.prepare(`SELECT ${PROJECT_PUBLIC_COLUMNS} FROM projects WHERE user_id = ?`).all(userId);
     return res.json(projects);
   }
 }
@@ -123,9 +196,9 @@ export function getProject(req: AuthRequest, res: Response) {
   
   let project;
   if (userRole === 'admin') {
-    project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+    project = db.prepare(`SELECT ${PROJECT_PUBLIC_COLUMNS} FROM projects WHERE id = ?`).get(id);
   } else {
-    project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(id, userId);
+    project = db.prepare(`SELECT ${PROJECT_PUBLIC_COLUMNS} FROM projects WHERE id = ? AND user_id = ?`).get(id, userId);
   }
   
   if (!project) {
@@ -165,7 +238,6 @@ export async function updateProjectRam(req: AuthRequest, res: Response) {
 }
 
 import { composeDown, removeContainer, removeImage } from '../services/docker.service';
-import path from 'path';
 
 const BUILD_DIR = process.env.BUILD_DIR || '/tmp/papuyu-builds';
 

@@ -33,6 +33,14 @@ try {
 } catch (e) {}
 
 try {
+  db.prepare("ALTER TABLE projects ADD COLUMN dockerfile_source TEXT DEFAULT 'repo'").run();
+} catch (e) {}
+
+try {
+  db.prepare("ALTER TABLE projects ADD COLUMN dockerfile_content TEXT").run();
+} catch (e) {}
+
+try {
   // Check if column exists first
   const columns = db.prepare("PRAGMA table_info(projects)").all() as any[];
   const hasSubdomain = columns.some(c => c.name === 'subdomain');

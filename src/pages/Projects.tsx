@@ -8,9 +8,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, X, PlusCircle, Trash2, DownloadCloud, ShieldAlert } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+
+const createInitialForm = () => ({
+  name: "",
+  git_repository: "",
+  branch: "main",
+  project_type: "dockerfile",
+  dockerfile_path: "Dockerfile",
+  dockerfile_source: "repo" as "repo" | "upload" | "textarea",
+  dockerfile_content: "",
+  compose_file: "docker-compose.yml",
+  port: "80",
+  env_vars: [] as { key: string; value: string }[],
+  subdomain: "",
+  waf_enabled: false,
+  ram_limit: "0",
+});
 
 export default function Projects() {
   const { projects, addProject } = useProjects();
@@ -27,22 +44,34 @@ export default function Projects() {
   const additionalDomains = additionalDomainsStr ? additionalDomainsStr.split(',').map((d: string) => d.trim()).filter(Boolean) : [];
   
   const [selectedDomain, setSelectedDomain] = useState<string>(baseDomain);
-  const [form, setForm] = useState({
-    name: "",
-    git_repository: "",
-    branch: "main",
-    project_type: "dockerfile", // "dockerfile" | "compose"
-    dockerfile_path: "Dockerfile",
-    compose_file: "docker-compose.yml",
-    port: "80",
-    env_vars: [] as { key: string; value: string }[],
-    subdomain: "",
-    waf_enabled: false,
-    ram_limit: "0",
-  });
+  const [form, setForm] = useState(createInitialForm);
+
+  const handleDockerfileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      setForm((prev) => ({
+        ...prev,
+        dockerfile_source: "upload",
+        dockerfile_content: content,
+        dockerfile_path: prev.dockerfile_path === "Dockerfile" ? file.name || "Dockerfile" : prev.dockerfile_path,
+      }));
+      toast({ title: "Dockerfile loaded", description: `${file.name} siap digunakan untuk build.` });
+    } catch (error) {
+      toast({ title: "Gagal membaca file", description: "Pastikan file Dockerfile dapat dibaca sebagai teks.", variant: "destructive" });
+    } finally {
+      event.target.value = "";
+    }
+  };
 
   const handleCreate = async () => {
     if (!form.name || !form.git_repository) return;
+    if (form.project_type === "dockerfile" && form.dockerfile_source !== "repo" && !form.dockerfile_content.trim()) {
+      toast({ title: "Dockerfile diperlukan", description: "Upload file atau isi Dockerfile di textarea terlebih dahulu.", variant: "destructive" });
+      return;
+    }
     
     let finalSubdomain = form.subdomain;
     if (finalSubdomain && selectedDomain !== 'custom' && selectedDomain !== baseDomain) {
@@ -56,6 +85,8 @@ export default function Projects() {
       branch: form.branch,
       project_type: form.project_type as "dockerfile" | "compose",
       dockerfile_path: form.dockerfile_path,
+      dockerfile_source: form.project_type === "dockerfile" ? form.dockerfile_source : "repo",
+      dockerfile_content: form.project_type === "dockerfile" && form.dockerfile_source !== "repo" ? form.dockerfile_content : undefined,
       compose_file: form.compose_file,
       port: parseInt(form.port) || 3000,
       env_vars: form.env_vars,
@@ -64,19 +95,7 @@ export default function Projects() {
       ram_limit: form.ram_limit ? parseInt(form.ram_limit) : 0,
     });
     setLoading(false);
-    setForm({ 
-      name: "", 
-      git_repository: "", 
-      branch: "main", 
-      project_type: "dockerfile",
-      dockerfile_path: "Dockerfile", 
-      compose_file: "docker-compose.yml",
-      port: "80",
-      env_vars: [],
-      subdomain: "",
-      waf_enabled: false,
-      ram_limit: "0",
-    });
+    setForm(createInitialForm());
     setSelectedDomain(baseDomain);
     setShowForm(false);
   };
@@ -252,7 +271,13 @@ export default function Projects() {
                 <Label className="text-xs text-muted-foreground">Project Type</Label>
                 <Select 
                   value={form.project_type} 
-                  onValueChange={val => setForm({ ...form, project_type: val })}
+                  onValueChange={val =>
+                    setForm({
+                      ...form,
+                      project_type: val,
+                      dockerfile_source: val === "dockerfile" ? form.dockerfile_source : "repo",
+                    })
+                  }
                 >
                   <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select type" />
@@ -265,9 +290,59 @@ export default function Projects() {
               </div>
 
               {form.project_type === "dockerfile" ? (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Dockerfile Path</Label>
-                  <Input placeholder="Dockerfile" value={form.dockerfile_path} onChange={e => setForm({ ...form, dockerfile_path: e.target.value })} className="bg-background font-mono text-sm" />
+                <div className="space-y-4 sm:col-span-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Dockerfile Path</Label>
+                      <Input placeholder="Dockerfile" value={form.dockerfile_path} onChange={e => setForm({ ...form, dockerfile_path: e.target.value })} className="bg-background font-mono text-sm" />
+                      <p className="text-[10px] text-muted-foreground">Lokasi file Dockerfile di dalam workspace build hasil clone repo.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Dockerfile Source</Label>
+                      <Select
+                        value={form.dockerfile_source}
+                        onValueChange={(value: "repo" | "upload" | "textarea") =>
+                          setForm({
+                            ...form,
+                            dockerfile_source: value,
+                            dockerfile_content: value === "repo" ? "" : form.dockerfile_content,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="Select source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="repo">Use file from repo path</SelectItem>
+                          <SelectItem value="upload">Upload Dockerfile</SelectItem>
+                          <SelectItem value="textarea">Paste in textarea</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {form.dockerfile_source !== "repo" && (
+                    <div className="space-y-3 rounded-md border border-border p-3 bg-muted/20">
+                      {form.dockerfile_source === "upload" && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Upload Dockerfile</Label>
+                          <Input type="file" accept=".dockerfile,.txt,text/plain" onChange={handleDockerfileUpload} className="bg-background text-sm" />
+                          <p className="text-[10px] text-muted-foreground">Setelah diupload, isi file akan muncul di textarea dan masih bisa Anda edit.</p>
+                        </div>
+                      )}
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Dockerfile Content</Label>
+                        <Textarea
+                          placeholder={"FROM node:20-alpine\nWORKDIR /app\nCOPY . .\nRUN npm install\nEXPOSE 3000"}
+                          value={form.dockerfile_content}
+                          onChange={(e) => setForm({ ...form, dockerfile_content: e.target.value })}
+                          className="min-h-[220px] bg-background font-mono text-xs"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Konten ini akan ditulis ke `dockerfile_path` sebelum proses build dijalankan.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-1.5">
