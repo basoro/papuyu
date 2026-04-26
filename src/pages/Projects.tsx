@@ -9,9 +9,249 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, X, PlusCircle, Trash2, DownloadCloud, ShieldAlert } from "lucide-react";
+import { Plus, X, PlusCircle, Trash2, DownloadCloud, ShieldAlert, Copy } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+
+type TemplateKey = "mysql" | "postgres" | "redis";
+type EnvVar = { key: string; value: string };
+
+interface TemplateDefinition {
+  path: string;
+  content: string;
+  port: string;
+  envVars: EnvVar[];
+}
+
+interface QuickTemplate {
+  label: string;
+  dockerfile: TemplateDefinition;
+  compose: TemplateDefinition;
+}
+
+const QUICK_TEMPLATES: Record<TemplateKey, QuickTemplate> = {
+  mysql: {
+    label: "MySQL",
+    dockerfile: {
+      path: "Dockerfile",
+      port: "3306",
+      content: `FROM mysql:8.0
+
+ENV TZ=\${TZ}
+ENV MYSQL_ROOT_PASSWORD=\${MYSQL_ROOT_PASSWORD}
+ENV MYSQL_DATABASE=\${MYSQL_DATABASE}
+ENV MYSQL_USER=\${MYSQL_USER}
+ENV MYSQL_PASSWORD=\${MYSQL_PASSWORD}
+
+COPY ./init-scripts/ /docker-entrypoint-initdb.d/
+
+EXPOSE 3306`,
+      envVars: [
+        { key: "TZ", value: "Asia/Jakarta" },
+        { key: "MYSQL_ROOT_PASSWORD", value: "change-this-root-password" },
+        { key: "MYSQL_DATABASE", value: "app_db" },
+        { key: "MYSQL_USER", value: "app_user" },
+        { key: "MYSQL_PASSWORD", value: "change-this-user-password" },
+      ],
+    },
+    compose: {
+      path: "docker-compose.yml",
+      port: "80",
+      content: `version: "3.8"
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-name-resolve
+      - --max_connections=200
+    environment:
+      TZ: \${TZ}
+      MYSQL_ROOT_PASSWORD: \${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: \${MYSQL_DATABASE}
+      MYSQL_USER: \${MYSQL_USER}
+      MYSQL_PASSWORD: \${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p\${MYSQL_ROOT_PASSWORD} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  web:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: \${TZ}
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: \${MYSQL_USER}
+      PMA_PASSWORD: \${MYSQL_PASSWORD}
+      PMA_ABSOLUTE_URI: \${PMA_ABSOLUTE_URI}
+      PMA_ARBITRARY: 0
+      UPLOAD_LIMIT: \${UPLOAD_LIMIT}
+      MEMORY_LIMIT: \${PMA_MEMORY_LIMIT}
+      MAX_EXECUTION_TIME: \${PMA_MAX_EXECUTION_TIME}
+
+volumes:
+  db_data:
+`,
+      envVars: [
+        { key: "TZ", value: "Asia/Jakarta" },
+        { key: "MYSQL_ROOT_PASSWORD", value: "change-this-root-password" },
+        { key: "MYSQL_DATABASE", value: "app_db" },
+        { key: "MYSQL_USER", value: "app_user" },
+        { key: "MYSQL_PASSWORD", value: "change-this-user-password" },
+        { key: "PMA_ABSOLUTE_URI", value: "https://dbadmin.example.com/" },
+        { key: "UPLOAD_LIMIT", value: "256M" },
+        { key: "PMA_MEMORY_LIMIT", value: "512M" },
+        { key: "PMA_MAX_EXECUTION_TIME", value: "120" },
+      ],
+    },
+  },
+  postgres: {
+    label: "Postgres",
+    dockerfile: {
+      path: "Dockerfile",
+      port: "5432",
+      content: `FROM postgres:16-alpine
+
+ENV TZ=\${TZ}
+ENV POSTGRES_DB=\${POSTGRES_DB}
+ENV POSTGRES_USER=\${POSTGRES_USER}
+ENV POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
+
+COPY ./init-scripts/ /docker-entrypoint-initdb.d/
+
+EXPOSE 5432`,
+      envVars: [
+        { key: "TZ", value: "Asia/Jakarta" },
+        { key: "POSTGRES_DB", value: "app_db" },
+        { key: "POSTGRES_USER", value: "app_user" },
+        { key: "POSTGRES_PASSWORD", value: "change-this-postgres-password" },
+      ],
+    },
+    compose: {
+      path: "docker-compose.yml",
+      port: "80",
+      content: `version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      TZ: \${TZ}
+      POSTGRES_DB: \${POSTGRES_DB}
+      POSTGRES_USER: \${POSTGRES_USER}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  web:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: \${TZ}
+      PGADMIN_DEFAULT_EMAIL: \${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: \${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "True"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+
+volumes:
+  pg_data:
+`,
+      envVars: [
+        { key: "TZ", value: "Asia/Jakarta" },
+        { key: "POSTGRES_DB", value: "app_db" },
+        { key: "POSTGRES_USER", value: "app_user" },
+        { key: "POSTGRES_PASSWORD", value: "change-this-postgres-password" },
+        { key: "PGADMIN_DEFAULT_EMAIL", value: "admin@example.com" },
+        { key: "PGADMIN_DEFAULT_PASSWORD", value: "change-this-pgadmin-password" },
+      ],
+    },
+  },
+  redis: {
+    label: "Redis",
+    dockerfile: {
+      path: "Dockerfile",
+      port: "6379",
+      content: `FROM redis:7-alpine
+
+ENV REDIS_PASSWORD=\${REDIS_PASSWORD}
+
+CMD ["sh", "-c", "redis-server --appendonly yes --requirepass \\"$REDIS_PASSWORD\\""]
+
+EXPOSE 6379`,
+      envVars: [
+        { key: "REDIS_PASSWORD", value: "change-this-redis-password" },
+      ],
+    },
+    compose: {
+      path: "docker-compose.yml",
+      port: "8081",
+      content: `version: "3.8"
+
+services:
+  db:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "\${REDIS_PASSWORD}"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "\${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  web:
+    image: rediscommander/redis-commander:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: \${TZ}
+      REDIS_HOSTS: local:db:6379:0:\${REDIS_PASSWORD}
+      HTTP_USER: \${REDIS_COMMANDER_USER}
+      HTTP_PASSWORD: \${REDIS_COMMANDER_PASSWORD}
+
+volumes:
+  redis_data:
+`,
+      envVars: [
+        { key: "TZ", value: "Asia/Jakarta" },
+        { key: "REDIS_PASSWORD", value: "change-this-redis-password" },
+        { key: "REDIS_COMMANDER_USER", value: "admin" },
+        { key: "REDIS_COMMANDER_PASSWORD", value: "change-this-commander-password" },
+      ],
+    },
+  },
+};
+
+function cloneEnvVars(envVars: EnvVar[]) {
+  return envVars.map((env) => ({ ...env }));
+}
 
 const createInitialForm = () => ({
   name: "",
@@ -37,6 +277,7 @@ export default function Projects() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingEnv, setLoadingEnv] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateKey>("mysql");
   const { toast } = useToast();
 
   const serverIp = import.meta.env.VITE_SERVER_IP;
@@ -50,6 +291,10 @@ export default function Projects() {
 
   const activeSource = form.project_type === "dockerfile" ? form.dockerfile_source : form.compose_source;
   const usesRepository = activeSource === "repo";
+  const activeTemplate = QUICK_TEMPLATES[selectedTemplate];
+  const activeTemplateDefinition = form.project_type === "dockerfile" ? activeTemplate.dockerfile : activeTemplate.compose;
+  const activeTemplateEnvVars = form.project_type === "dockerfile" ? activeTemplate.dockerfile.envVars : activeTemplate.compose.envVars;
+  const activeTemplateEnvText = activeTemplateEnvVars.map((env) => `${env.key}=${env.value}`).join("\n");
 
   const handleDefinitionUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -137,6 +382,65 @@ export default function Projects() {
 
   const addEnvVar = () => {
     setForm({ ...form, env_vars: [...form.env_vars, { key: "", value: "" }] });
+  };
+
+  const applyQuickTemplate = () => {
+    setForm((prev) => {
+      const nextForm = {
+        ...prev,
+        port: activeTemplateDefinition.port,
+        env_vars: cloneEnvVars(activeTemplateEnvVars),
+      };
+
+      if (prev.project_type === "dockerfile") {
+        return {
+          ...nextForm,
+          dockerfile_path: activeTemplateDefinition.path,
+          dockerfile_source: "textarea" as const,
+          dockerfile_content: activeTemplateDefinition.content,
+        };
+      }
+
+      return {
+        ...nextForm,
+        compose_file: activeTemplateDefinition.path,
+        compose_source: "textarea" as const,
+        compose_content: activeTemplateDefinition.content,
+      };
+    });
+
+    toast({
+      title: "Template diterapkan",
+      description: `${activeTemplate.label} untuk ${form.project_type === "dockerfile" ? "Dockerfile" : "Compose"} sudah mengisi textarea dan environment variables.`,
+    });
+  };
+
+  const applyEnvTemplate = () => {
+    setForm((prev) => ({
+      ...prev,
+      env_vars: cloneEnvVars(activeTemplateEnvVars),
+    }));
+
+    toast({
+      title: "Environment template diterapkan",
+      description: `${activeTemplateEnvVars.length} environment variables template telah dimasukkan ke form.`,
+    });
+  };
+
+  const copyEnvTemplate = async () => {
+    try {
+      await navigator.clipboard.writeText(activeTemplateEnvText);
+      toast({
+        title: "Env template disalin",
+        description: `Template ${activeTemplate.label} siap di-paste.`,
+      });
+    } catch {
+      toast({
+        title: "Gagal menyalin",
+        description: "Clipboard tidak tersedia. Silakan copy manual dari textarea template.",
+        variant: "destructive",
+      });
+    }
   };
 
   const removeEnvVar = (index: number) => {
@@ -329,6 +633,39 @@ export default function Projects() {
                 </Select>
               </div>
 
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Quick Template</Label>
+                <Select value={selectedTemplate} onValueChange={(value: TemplateKey) => setSelectedTemplate(value)}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Pilih template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mysql">MySQL</SelectItem>
+                    <SelectItem value="postgres">Postgres</SelectItem>
+                    <SelectItem value="redis">Redis</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Template Actions</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="secondary" onClick={applyQuickTemplate}>
+                    Terapkan {activeTemplate.label}
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={applyEnvTemplate}>
+                    Terapkan Env Template
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={copyEnvTemplate}>
+                    <Copy className="h-3.5 w-3.5 mr-1" />
+                    Copy Env Template
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Template cepat akan mengisi textarea, path file, container port, dan daftar environment variables sesuai pilihan.
+                </p>
+              </div>
+
               {form.project_type === "dockerfile" ? (
                 <div className="space-y-4 sm:col-span-2">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -478,6 +815,22 @@ export default function Projects() {
             </div>
 
             <div className="space-y-2 pt-2 border-t border-border">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">Env Template ({activeTemplate.label})</Label>
+                  <Button type="button" size="sm" variant="ghost" onClick={copyEnvTemplate} className="h-6 text-xs">
+                    <Copy className="h-3 w-3 mr-1" />
+                    Copy List
+                  </Button>
+                </div>
+                <Textarea
+                  readOnly
+                  value={activeTemplateEnvText}
+                  className="min-h-[120px] bg-muted/20 font-mono text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">Format `KEY=VALUE` ini siap di-copy sebagai referensi, lalu bisa langsung diterapkan ke form lewat tombol template env.</p>
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground">Environment Variables</Label>
                 <div className="flex gap-2">
