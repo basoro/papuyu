@@ -134,23 +134,8 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
       userId
     );
 
-    provisionManagedMysqlDatabase({
-      id: databaseId,
-      version: String(version),
-      dbName: String(db_name),
-      username: String(username),
-      userPassword,
-      rootPassword,
-      containerName,
-      volumeName,
-      networkName: SHARED_DATABASE_NETWORK,
-    });
-    waitForManagedDatabaseHealthy(containerName);
-
-    db.prepare('UPDATE managed_databases SET status = ? WHERE id = ?').run('running', databaseId);
-
     const created = getDatabaseForUser(databaseId, userId, req.userRole);
-    return res.status(201).json({
+    res.status(201).json({
       ...created,
       credentials: {
         host,
@@ -160,6 +145,29 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
         password: userPassword,
       }
     });
+
+    void (async () => {
+      try {
+        await provisionManagedMysqlDatabase({
+          id: databaseId,
+          version: String(version),
+          dbName: String(db_name),
+          username: String(username),
+          userPassword,
+          rootPassword,
+          containerName,
+          volumeName,
+          networkName: SHARED_DATABASE_NETWORK,
+        });
+        await waitForManagedDatabaseHealthy(containerName);
+        db.prepare('UPDATE managed_databases SET status = ? WHERE id = ?').run('running', databaseId);
+      } catch (error: any) {
+        console.error(`Managed database provisioning failed for ${databaseId}:`, error);
+        db.prepare('UPDATE managed_databases SET status = ? WHERE id = ?').run('failed', databaseId);
+      }
+    })();
+
+    return;
   } catch (error: any) {
     db.prepare('UPDATE managed_databases SET status = ? WHERE id = ?').run('failed', databaseId);
     return res.status(500).json({ error: error.message || 'Failed to create managed database' });

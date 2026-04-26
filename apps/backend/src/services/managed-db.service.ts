@@ -1,13 +1,25 @@
-import { execFileSync } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
+import { promisify } from 'util';
 import { canonicalId } from './docker.service';
 
 export const SHARED_DATABASE_NETWORK = 'papuyu-services-network';
+const execFileAsync = promisify(execFile);
 
 function runDocker(args: string[], timeout = 60_000): string {
   return execFileSync('docker', args, {
     timeout,
     stdio: 'pipe'
   }).toString();
+}
+
+async function runDockerAsync(args: string[], timeout = 60_000): Promise<string> {
+  const { stdout } = await execFileAsync('docker', args, {
+    timeout,
+    encoding: 'utf8',
+    maxBuffer: 10 * 1024 * 1024,
+  });
+
+  return stdout;
 }
 
 export function buildManagedDatabaseContainerName(id: string): string {
@@ -18,23 +30,23 @@ export function buildManagedDatabaseVolumeName(id: string): string {
   return `papuyu-db-data-${canonicalId(id)}`;
 }
 
-export function ensureSharedDatabaseNetwork(networkName = SHARED_DATABASE_NETWORK) {
+export async function ensureSharedDatabaseNetwork(networkName = SHARED_DATABASE_NETWORK) {
   try {
-    runDocker(['network', 'inspect', networkName], 15_000);
+    await runDockerAsync(['network', 'inspect', networkName], 15_000);
   } catch {
-    runDocker(['network', 'create', networkName], 30_000);
+    await runDockerAsync(['network', 'create', networkName], 30_000);
   }
 }
 
-function ensureVolume(volumeName: string) {
+async function ensureVolume(volumeName: string) {
   try {
-    runDocker(['volume', 'inspect', volumeName], 15_000);
+    await runDockerAsync(['volume', 'inspect', volumeName], 15_000);
   } catch {
-    runDocker(['volume', 'create', volumeName], 30_000);
+    await runDockerAsync(['volume', 'create', volumeName], 30_000);
   }
 }
 
-export function provisionManagedMysqlDatabase(options: {
+export async function provisionManagedMysqlDatabase(options: {
   id: string;
   version: string;
   dbName: string;
@@ -56,14 +68,14 @@ export function provisionManagedMysqlDatabase(options: {
     networkName = SHARED_DATABASE_NETWORK,
   } = options;
 
-  ensureSharedDatabaseNetwork(networkName);
-  ensureVolume(volumeName);
+  await ensureSharedDatabaseNetwork(networkName);
+  await ensureVolume(volumeName);
 
   try {
-    runDocker(['rm', '-f', containerName], 30_000);
+    await runDockerAsync(['rm', '-f', containerName], 30_000);
   } catch {}
 
-  runDocker([
+  await runDockerAsync([
     'run',
     '-d',
     '--name',
@@ -101,17 +113,17 @@ export function provisionManagedMysqlDatabase(options: {
   ], 120_000);
 }
 
-export function waitForManagedDatabaseHealthy(containerName: string, timeoutMs = 120_000) {
+export async function waitForManagedDatabaseHealthy(containerName: string, timeoutMs = 120_000) {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
     try {
-      const health = runDocker([
+      const health = (await runDockerAsync([
         'inspect',
         '-f',
         '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}',
         containerName
-      ], 15_000).trim();
+      ], 15_000)).trim();
 
       if (health === 'healthy' || health === 'running') {
         return;
@@ -124,7 +136,7 @@ export function waitForManagedDatabaseHealthy(containerName: string, timeoutMs =
       throw error;
     }
 
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2_000);
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
   }
 
   throw new Error('Timed out while waiting for managed database to become healthy');
