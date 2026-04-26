@@ -75,6 +75,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
 
   useEffect(() => {
+    if (!token) {
+      socket?.disconnect();
+      return;
+    }
+
     socket = createPapuyuSocket();
 
     socket.on("connect", () => {
@@ -98,7 +103,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [token]);
 
   const fetchProjects = useCallback(async () => {
     if (!token) {
