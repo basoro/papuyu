@@ -1,8 +1,10 @@
 import { execFile, execFileSync } from 'child_process';
 import { promisify } from 'util';
 import { canonicalId } from './docker.service';
+import { config } from '../config/env';
 
 export const SHARED_DATABASE_NETWORK = 'papuyu-services-network';
+export const PUBLIC_PROXY_NETWORK = 'papuyu-network';
 const execFileAsync = promisify(execFile);
 
 function runDocker(args: string[], timeout = 60_000): string {
@@ -47,7 +49,6 @@ async function ensureVolume(volumeName: string) {
 }
 
 export async function provisionManagedMysqlDatabase(options: {
-  id: string;
   version: string;
   dbName: string;
   username: string;
@@ -56,6 +57,9 @@ export async function provisionManagedMysqlDatabase(options: {
   containerName: string;
   volumeName: string;
   networkName?: string;
+  publicAccessEnabled?: boolean;
+  publicHost?: string | null;
+  publicAllowedIps?: string[];
 }) {
   const {
     version,
@@ -66,14 +70,46 @@ export async function provisionManagedMysqlDatabase(options: {
     containerName,
     volumeName,
     networkName = SHARED_DATABASE_NETWORK,
+    publicAccessEnabled = false,
+    publicHost,
+    publicAllowedIps = [],
   } = options;
 
   await ensureSharedDatabaseNetwork(networkName);
   await ensureVolume(volumeName);
+  if (publicAccessEnabled) {
+    await ensureSharedDatabaseNetwork(PUBLIC_PROXY_NETWORK);
+  }
 
   try {
     await runDockerAsync(['rm', '-f', containerName], 30_000);
   } catch {}
+
+  const middlewareName = `${containerName}-ipallowlist`;
+  const publicLabels = publicAccessEnabled && publicHost
+    ? [
+        '--label',
+        'traefik.enable=true',
+        '--label',
+        `traefik.tcp.routers.${containerName}.rule=HostSNI(\`${publicHost}\`)`,
+        '--label',
+        `traefik.tcp.routers.${containerName}.entrypoints=${config.traefikMysqlEntrypoint}`,
+        '--label',
+        `traefik.tcp.routers.${containerName}.tls=true`,
+        '--label',
+        `traefik.tcp.routers.${containerName}.service=${containerName}`,
+        ...(publicAllowedIps.length > 0 ? [
+          '--label',
+          `traefik.tcp.routers.${containerName}.middlewares=${middlewareName}`,
+          '--label',
+          `traefik.tcp.middlewares.${middlewareName}.ipallowlist.sourcerange=${publicAllowedIps.join(',')}`,
+        ] : []),
+        '--label',
+        `traefik.tcp.services.${containerName}.loadbalancer.server.port=3306`,
+        '--label',
+        `traefik.docker.network=${PUBLIC_PROXY_NETWORK}`
+      ]
+    : [];
 
   await runDockerAsync([
     'run',
@@ -84,6 +120,7 @@ export async function provisionManagedMysqlDatabase(options: {
     networkName,
     '--network-alias',
     containerName,
+    ...publicLabels,
     '-e',
     `MYSQL_ROOT_PASSWORD=${rootPassword}`,
     '-e',
@@ -111,6 +148,10 @@ export async function provisionManagedMysqlDatabase(options: {
     '--skip-name-resolve',
     '--max_connections=200'
   ], 120_000);
+
+  if (publicAccessEnabled && publicHost) {
+    await runDockerAsync(['network', 'connect', PUBLIC_PROXY_NETWORK, containerName], 30_000).catch(() => undefined);
+  }
 }
 
 export async function waitForManagedDatabaseHealthy(containerName: string, timeoutMs = 120_000) {

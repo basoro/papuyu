@@ -6,6 +6,7 @@ import {
   detachManagedDatabase,
   getManagedDatabase,
   listManagedDatabases,
+  updateManagedDatabasePublicAccess,
 } from '../controllers/database.controller';
 import { authMiddleware } from '../middleware/auth';
 
@@ -16,6 +17,7 @@ router.use(authMiddleware);
 router.get('/', listManagedDatabases);
 router.post('/', createManagedDatabase);
 router.get('/:id', getManagedDatabase);
+router.put('/:id/public-access', updateManagedDatabasePublicAccess);
 router.post('/:id/attach', attachManagedDatabase);
 router.post('/:id/detach', detachManagedDatabase);
 router.delete('/:id', deleteManagedDatabase);

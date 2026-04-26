@@ -18,6 +18,8 @@ export const config = {
   dbPath: process.env.DB_PATH || path.join(__dirname, '../../../../data/papuyu.db'),
   redisHost: process.env.REDIS_HOST || '127.0.0.1',
   redisPort: parseInt(process.env.REDIS_PORT || '6379'),
+  traefikMysqlEntrypoint: process.env.TRAEFIK_MYSQL_ENTRYPOINT || 'mysqlsecure',
+  traefikMysqlPublicPort: parseInt(process.env.TRAEFIK_MYSQL_PUBLIC_PORT || '3306'),
   
   // Use nip.io as the ultimate fallback if no domain is provided, 
   // but prioritize reading from the server's environment variable.

@@ -122,6 +122,11 @@ try {
       container_name      TEXT NOT NULL UNIQUE,
       volume_name         TEXT NOT NULL UNIQUE,
       network_name        TEXT NOT NULL DEFAULT 'papuyu-services-network',
+      public_access_enabled INTEGER DEFAULT 0,
+      public_subdomain    TEXT,
+      public_port         INTEGER DEFAULT 3306,
+      public_tls_enabled  INTEGER DEFAULT 1,
+      public_allowed_ips  TEXT,
       status              TEXT DEFAULT 'provisioning',
       user_id             INTEGER NOT NULL,
       created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -130,6 +135,28 @@ try {
   `).run();
 } catch (e: any) {
   console.error('Failed to create managed_databases table:', e);
+}
+
+try {
+  const columns = db.prepare("PRAGMA table_info(managed_databases)").all() as any[];
+  const addColumnIfMissing = (name: string, sql: string) => {
+    if (!columns.some((column) => column.name === name)) {
+      db.prepare(sql).run();
+    }
+  };
+
+  addColumnIfMissing('public_access_enabled', "ALTER TABLE managed_databases ADD COLUMN public_access_enabled INTEGER DEFAULT 0");
+  addColumnIfMissing('public_subdomain', "ALTER TABLE managed_databases ADD COLUMN public_subdomain TEXT");
+  addColumnIfMissing('public_port', "ALTER TABLE managed_databases ADD COLUMN public_port INTEGER DEFAULT 3306");
+  addColumnIfMissing('public_tls_enabled', "ALTER TABLE managed_databases ADD COLUMN public_tls_enabled INTEGER DEFAULT 1");
+  addColumnIfMissing('public_allowed_ips', "ALTER TABLE managed_databases ADD COLUMN public_allowed_ips TEXT");
+  db.prepare(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_managed_databases_public_subdomain
+    ON managed_databases(public_subdomain)
+    WHERE public_subdomain IS NOT NULL
+  `).run();
+} catch (e: any) {
+  console.error('Failed to migrate managed_databases public access columns:', e);
 }
 
 try {

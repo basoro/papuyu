@@ -66,11 +66,20 @@ CREATE TABLE IF NOT EXISTS managed_databases (
   container_name      TEXT NOT NULL UNIQUE,
   volume_name         TEXT NOT NULL UNIQUE,
   network_name        TEXT NOT NULL DEFAULT 'papuyu-services-network',
+  public_access_enabled INTEGER DEFAULT 0,
+  public_subdomain    TEXT,
+  public_port         INTEGER DEFAULT 3306,
+  public_tls_enabled  INTEGER DEFAULT 1,
+  public_allowed_ips  TEXT,
   status              TEXT DEFAULT 'provisioning', -- provisioning | running | failed | stopped
   user_id             INTEGER NOT NULL,
   created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_managed_databases_public_subdomain
+ON managed_databases(public_subdomain)
+WHERE public_subdomain IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS project_database_attachments (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
