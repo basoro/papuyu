@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { apiRequest } from "../lib/api";
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
+import { apiRequest, GLOBAL_LOGOUT_EVENT } from "../lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface User {
@@ -88,16 +88,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = useCallback((showToast = true) => {
     setUser(null);
     setToken(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    toast({
-      title: "Logged out",
-      description: "See you soon!",
-    });
-  };
+    if (showToast) {
+      toast({
+        title: "Logged out",
+        description: "See you soon!",
+      });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    const handleGlobalLogout = () => logout(false);
+    window.addEventListener(GLOBAL_LOGOUT_EVENT, handleGlobalLogout);
+    return () => window.removeEventListener(GLOBAL_LOGOUT_EVENT, handleGlobalLogout);
+  }, [logout]);
 
   return (
     <AuthContext.Provider value={{ user, token, login, register, logout, isAdmin: user?.role === "admin", isLoading }}>
