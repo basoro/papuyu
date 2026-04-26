@@ -58,6 +58,40 @@ function getProjectForUser(projectId: string, userId: number, userRole?: string)
   return db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(projectId, userId) as any;
 }
 
+function getAttachmentsByDatabaseIds(databaseIds: string[]) {
+  if (databaseIds.length === 0) {
+    return new Map<string, any[]>();
+  }
+
+  const placeholders = databaseIds.map(() => '?').join(', ');
+  const attachments = db.prepare(`
+    SELECT
+      project_database_attachments.database_id as database_id,
+      project_database_attachments.id as id,
+      project_database_attachments.alias as alias,
+      projects.id as project_id,
+      projects.name as project_name
+    FROM project_database_attachments
+    INNER JOIN projects ON projects.id = project_database_attachments.project_id
+    WHERE project_database_attachments.database_id IN (${placeholders})
+    ORDER BY project_database_attachments.created_at DESC
+  `).all(...databaseIds) as any[];
+
+  const attachmentsByDatabaseId = new Map<string, any[]>();
+  for (const attachment of attachments) {
+    const list = attachmentsByDatabaseId.get(attachment.database_id) || [];
+    list.push({
+      id: attachment.id,
+      alias: attachment.alias,
+      project_id: attachment.project_id,
+      project_name: attachment.project_name,
+    });
+    attachmentsByDatabaseId.set(attachment.database_id, list);
+  }
+
+  return attachmentsByDatabaseId;
+}
+
 export function listManagedDatabases(req: AuthRequest, res: Response) {
   const userId = req.userId!;
   const userRole = req.userRole;
@@ -66,7 +100,11 @@ export function listManagedDatabases(req: AuthRequest, res: Response) {
     ? db.prepare(`SELECT ${DATABASE_PUBLIC_COLUMNS} FROM managed_databases LEFT JOIN users ON users.id = managed_databases.user_id ORDER BY managed_databases.created_at DESC`).all()
     : db.prepare(`SELECT ${DATABASE_PUBLIC_COLUMNS} FROM managed_databases LEFT JOIN users ON users.id = managed_databases.user_id WHERE managed_databases.user_id = ? ORDER BY managed_databases.created_at DESC`).all(userId);
 
-  res.json(rows);
+  const attachmentsByDatabaseId = getAttachmentsByDatabaseIds(rows.map((row: any) => row.id));
+  res.json(rows.map((row: any) => ({
+    ...row,
+    attachments: attachmentsByDatabaseId.get(row.id) || [],
+  })));
 }
 
 export function getManagedDatabase(req: AuthRequest, res: Response) {
@@ -75,13 +113,7 @@ export function getManagedDatabase(req: AuthRequest, res: Response) {
     return res.status(404).json({ error: 'Database not found' });
   }
 
-  const attachments = db.prepare(`
-    SELECT project_database_attachments.id, project_database_attachments.alias, projects.id as project_id, projects.name as project_name
-    FROM project_database_attachments
-    INNER JOIN projects ON projects.id = project_database_attachments.project_id
-    WHERE project_database_attachments.database_id = ?
-    ORDER BY project_database_attachments.created_at DESC
-  `).all(req.params.id);
+  const attachments = getAttachmentsByDatabaseIds([req.params.id]).get(req.params.id) || [];
 
   res.json({ ...database, attachments });
 }

@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Database, Link2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +32,12 @@ interface ManagedDatabase {
   owner_email?: string;
   created_at: string;
   attachment_count: number;
+  attachments?: {
+    id: number;
+    alias: string;
+    project_id: string;
+    project_name: string;
+  }[];
 }
 
 const statusClasses: Record<ManagedDatabase["status"], string> = {
@@ -35,7 +51,10 @@ export default function DatabasesPage() {
   const [databases, setDatabases] = useState<ManagedDatabase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<Record<string, string>>({});
+  const [detachTarget, setDetachTarget] = useState<{ databaseId: string; projectId: string; projectName: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ databaseId: string; databaseName: string } | null>(null);
   const [name, setName] = useState("");
   const [dbName, setDbName] = useState("");
   const [username, setUsername] = useState("");
@@ -103,7 +122,7 @@ export default function DatabasesPage() {
         username,
       });
 
-      setDatabases((prev) => [created, ...prev]);
+      setDatabases((prev) => [{ ...created, attachments: [] }, ...prev]);
       setName("");
       setDbName("");
       setUsername("");
@@ -137,13 +156,34 @@ export default function DatabasesPage() {
     }
   };
 
+  const detachDatabase = async (databaseId: string, projectId: string) => {
+    setIsActionSubmitting(true);
+    try {
+      await apiRequest(`/databases/${databaseId}/detach`, "POST", { project_id: projectId });
+      toast({
+        title: "Database dilepas",
+        description: "Attachment database ke project berhasil dilepas.",
+      });
+      setDetachTarget(null);
+      fetchDatabases({ silent: true });
+    } catch (error: any) {
+      toast({ title: "Gagal detach database", description: error.message, variant: "destructive" });
+    } finally {
+      setIsActionSubmitting(false);
+    }
+  };
+
   const deleteDatabase = async (databaseId: string) => {
+    setIsActionSubmitting(true);
     try {
       await apiRequest(`/databases/${databaseId}`, "DELETE");
       setDatabases((prev) => prev.filter((database) => database.id !== databaseId));
       toast({ title: "Database dihapus", description: "Managed database berhasil dibersihkan." });
+      setDeleteTarget(null);
     } catch (error: any) {
       toast({ title: "Gagal menghapus database", description: error.message, variant: "destructive" });
+    } finally {
+      setIsActionSubmitting(false);
     }
   };
 
@@ -157,7 +197,7 @@ export default function DatabasesPage() {
               Managed MySQL internal yang bisa di-attach ke project Papuyu.
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={fetchDatabases}>
+          <Button size="sm" variant="outline" onClick={() => { void fetchDatabases(); }}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh
           </Button>
         </div>
@@ -226,9 +266,34 @@ export default function DatabasesPage() {
                 {database.owner_email || `User #${database.user_id}`}
               </div>
 
-              <div className="text-xs text-muted-foreground">
-                {database.attachment_count} project
-                {database.attachment_count !== 1 ? "s" : ""}
+              <div className="text-xs text-muted-foreground space-y-2">
+                <div>
+                  {database.attachment_count} project
+                  {database.attachment_count !== 1 ? "s" : ""}
+                </div>
+                {(database.attachments?.length || 0) > 0 ? (
+                  <div className="space-y-1">
+                    {database.attachments?.map((attachment) => (
+                      <div key={attachment.id} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1">
+                        <span className="truncate">{attachment.project_name}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setDetachTarget({
+                            databaseId: database.id,
+                            projectId: attachment.project_id,
+                            projectName: attachment.project_name,
+                          })}
+                        >
+                          Detach
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div>Belum ada attachment.</div>
+                )}
               </div>
 
               <div>
@@ -252,7 +317,13 @@ export default function DatabasesPage() {
               </div>
 
               <div className="flex justify-end">
-                <Button size="icon" variant="ghost" onClick={() => deleteDatabase(database.id)} title="Delete database">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setDeleteTarget({ databaseId: database.id, databaseName: database.name })}
+                  title={database.attachment_count > 0 ? "Detach semua project dulu" : "Delete database"}
+                  disabled={database.attachment_count > 0}
+                >
                   <Trash2 className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </div>
@@ -260,6 +331,54 @@ export default function DatabasesPage() {
           ))}
         </div>
       </div>
+
+      <AlertDialog open={!!detachTarget} onOpenChange={(open) => !open && !isActionSubmitting && setDetachTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Detach Database?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Database akan dilepas dari project `{detachTarget?.projectName}`. Project itu tidak akan lagi menerima env vars managed database pada deploy berikutnya.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isActionSubmitting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isActionSubmitting || !detachTarget}
+              onClick={(event) => {
+                event.preventDefault();
+                if (!detachTarget) return;
+                void detachDatabase(detachTarget.databaseId, detachTarget.projectId);
+              }}
+            >
+              {isActionSubmitting ? "Memproses..." : "Ya, Detach"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !isActionSubmitting && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Database?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Database `{deleteTarget?.databaseName}` beserta container dan volume persistennya akan dihapus permanen. Pastikan tidak ada data yang masih dibutuhkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isActionSubmitting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isActionSubmitting || !deleteTarget}
+              onClick={(event) => {
+                event.preventDefault();
+                if (!deleteTarget) return;
+                void deleteDatabase(deleteTarget.databaseId);
+              }}
+            >
+              {isActionSubmitting ? "Menghapus..." : "Ya, Hapus"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
