@@ -436,6 +436,7 @@ version: '3.8'
 services:
   ${serviceName}:
     networks:
+      - default
       - papuyu-network
     labels:
       - "traefik.enable=true"
@@ -445,6 +446,8 @@ services:
       - "traefik.docker.network=papuyu-network"${tlsLabels}${wafLabels}${deployBlock}
 
 networks:
+  default:
+    name: ${projectName}_default
   papuyu-network:
     external: true
 `;
