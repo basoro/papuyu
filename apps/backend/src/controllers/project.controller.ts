@@ -9,23 +9,23 @@ import path from 'path';
 import { execSync } from 'child_process';
 
 const PROJECT_PUBLIC_COLUMNS = `
-  id,
-  name,
-  git_repository,
-  branch,
-  project_type,
-  dockerfile_path,
-  compose_file,
-  port,
-  env_vars,
-  subdomain,
-  waf_enabled,
-  ram_limit,
-  dockerfile_source,
-  container_id,
-  status,
-  user_id,
-  created_at
+  projects.id as id,
+  projects.name as name,
+  projects.git_repository as git_repository,
+  projects.branch as branch,
+  projects.project_type as project_type,
+  projects.dockerfile_path as dockerfile_path,
+  projects.compose_file as compose_file,
+  projects.port as port,
+  projects.env_vars as env_vars,
+  projects.subdomain as subdomain,
+  projects.waf_enabled as waf_enabled,
+  projects.ram_limit as ram_limit,
+  projects.dockerfile_source as dockerfile_source,
+  projects.container_id as container_id,
+  projects.status as status,
+  projects.user_id as user_id,
+  projects.created_at as created_at
 `;
 
 function isSafeProjectPath(filePath: string): boolean {
