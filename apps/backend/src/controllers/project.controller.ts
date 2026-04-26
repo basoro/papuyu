@@ -171,7 +171,7 @@ export function createProject(req: AuthRequest, res: Response) {
     stmt.run(
       id,
       name,
-      git_repository || null,
+      git_repository || '',
       branch || 'main',
       finalDockerfilePath,
       port || 80,
