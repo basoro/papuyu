@@ -4,6 +4,17 @@ import fs from 'fs';
 
 const BUILD_DIR = process.env.BUILD_DIR || '/tmp/papuyu-builds';
 
+export function prepareBuildDirectory(projectId: string): string {
+  const targetDir = path.join(BUILD_DIR, projectId);
+
+  if (fs.existsSync(targetDir)) {
+    fs.rmSync(targetDir, { recursive: true });
+  }
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  return targetDir;
+}
+
 export function cloneRepository(
   projectId: string,
   gitUrl: string,
@@ -11,14 +22,7 @@ export function cloneRepository(
   onLog?: (msg: string) => void
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const targetDir = path.join(BUILD_DIR, projectId);
-
-    // Cleanup previous build
-    if (fs.existsSync(targetDir)) {
-      fs.rmSync(targetDir, { recursive: true });
-    }
-
-    fs.mkdirSync(targetDir, { recursive: true });
+    const targetDir = prepareBuildDirectory(projectId);
 
     const proc = spawn('git', ['clone', '--branch', branch, '--depth', '1', gitUrl, targetDir]);
 

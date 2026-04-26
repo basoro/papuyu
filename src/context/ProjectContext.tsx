@@ -14,6 +14,8 @@ export interface Project {
   dockerfile_source?: "repo" | "upload" | "textarea";
   dockerfile_content?: string | null;
   compose_file: string;
+  compose_source?: "repo" | "upload" | "textarea";
+  compose_content?: string | null;
   port: number;
   env_vars?: { key: string; value: string }[];
   subdomain?: string;
@@ -36,6 +38,8 @@ export interface CreateProjectPayload {
   dockerfile_source?: "repo" | "upload" | "textarea";
   dockerfile_content?: string;
   compose_file: string;
+  compose_source?: "repo" | "upload" | "textarea";
+  compose_content?: string;
   port: number;
   env_vars?: { key: string; value: string }[];
   subdomain?: string;

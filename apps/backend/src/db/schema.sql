@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS projects (
   dockerfile_source TEXT DEFAULT 'repo', -- 'repo' | 'upload' | 'textarea'
   dockerfile_content TEXT,               -- optional custom Dockerfile content
   compose_file    TEXT DEFAULT 'docker-compose.yml',
+  compose_source  TEXT DEFAULT 'repo',   -- 'repo' | 'upload' | 'textarea'
+  compose_content TEXT,                  -- optional custom compose content
   port            INTEGER DEFAULT 3000,
   env_vars        TEXT,                  -- JSON stringified: [{"key": "DB_HOST", "value": "localhost"}]
   subdomain       TEXT UNIQUE,           -- Custom subdomain (optional)

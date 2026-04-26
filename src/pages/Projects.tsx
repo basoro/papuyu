@@ -22,6 +22,8 @@ const createInitialForm = () => ({
   dockerfile_source: "repo" as "repo" | "upload" | "textarea",
   dockerfile_content: "",
   compose_file: "docker-compose.yml",
+  compose_source: "repo" as "repo" | "upload" | "textarea",
+  compose_content: "",
   port: "80",
   env_vars: [] as { key: string; value: string }[],
   subdomain: "",
@@ -46,30 +48,61 @@ export default function Projects() {
   const [selectedDomain, setSelectedDomain] = useState<string>(baseDomain);
   const [form, setForm] = useState(createInitialForm);
 
-  const handleDockerfileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const activeSource = form.project_type === "dockerfile" ? form.dockerfile_source : form.compose_source;
+  const usesRepository = activeSource === "repo";
+
+  const handleDefinitionUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       const content = await file.text();
-      setForm((prev) => ({
-        ...prev,
-        dockerfile_source: "upload",
-        dockerfile_content: content,
-        dockerfile_path: prev.dockerfile_path === "Dockerfile" ? file.name || "Dockerfile" : prev.dockerfile_path,
-      }));
-      toast({ title: "Dockerfile loaded", description: `${file.name} siap digunakan untuk build.` });
+      setForm((prev) => {
+        if (prev.project_type === "dockerfile") {
+          return {
+            ...prev,
+            dockerfile_source: "upload",
+            dockerfile_content: content,
+            dockerfile_path: prev.dockerfile_path === "Dockerfile" ? file.name || "Dockerfile" : prev.dockerfile_path,
+          };
+        }
+
+        return {
+          ...prev,
+          compose_source: "upload",
+          compose_content: content,
+          compose_file: prev.compose_file === "docker-compose.yml" ? file.name || "docker-compose.yml" : prev.compose_file,
+        };
+      });
+      toast({
+        title: form.project_type === "dockerfile" ? "Dockerfile loaded" : "Compose file loaded",
+        description: `${file.name} siap digunakan untuk build.`,
+      });
     } catch (error) {
-      toast({ title: "Gagal membaca file", description: "Pastikan file Dockerfile dapat dibaca sebagai teks.", variant: "destructive" });
+      toast({ title: "Gagal membaca file", description: "Pastikan file definisi container dapat dibaca sebagai teks.", variant: "destructive" });
     } finally {
       event.target.value = "";
     }
   };
 
   const handleCreate = async () => {
-    if (!form.name || !form.git_repository) return;
+    if (!form.name) {
+      toast({ title: "Nama wajib diisi", description: "Isi nama project terlebih dahulu.", variant: "destructive" });
+      return;
+    }
+
+    if (usesRepository && !form.git_repository.trim()) {
+      toast({ title: "Git Repository diperlukan", description: "Mode Use File From Repo membutuhkan repository Git.", variant: "destructive" });
+      return;
+    }
+
     if (form.project_type === "dockerfile" && form.dockerfile_source !== "repo" && !form.dockerfile_content.trim()) {
       toast({ title: "Dockerfile diperlukan", description: "Upload file atau isi Dockerfile di textarea terlebih dahulu.", variant: "destructive" });
+      return;
+    }
+
+    if (form.project_type === "compose" && form.compose_source !== "repo" && !form.compose_content.trim()) {
+      toast({ title: "Compose file diperlukan", description: "Upload file atau isi Docker Compose di textarea terlebih dahulu.", variant: "destructive" });
       return;
     }
     
@@ -81,13 +114,15 @@ export default function Projects() {
     setLoading(true);
     await addProject({
       name: form.name,
-      git_repository: form.git_repository,
-      branch: form.branch,
+      git_repository: usesRepository ? form.git_repository : "",
+      branch: usesRepository ? form.branch : "main",
       project_type: form.project_type as "dockerfile" | "compose",
       dockerfile_path: form.dockerfile_path,
       dockerfile_source: form.project_type === "dockerfile" ? form.dockerfile_source : "repo",
       dockerfile_content: form.project_type === "dockerfile" && form.dockerfile_source !== "repo" ? form.dockerfile_content : undefined,
       compose_file: form.compose_file,
+      compose_source: form.project_type === "compose" ? form.compose_source : "repo",
+      compose_content: form.project_type === "compose" && form.compose_source !== "repo" ? form.compose_content : undefined,
       port: parseInt(form.port) || 3000,
       env_vars: form.env_vars,
       subdomain: finalSubdomain || undefined,
@@ -259,14 +294,18 @@ export default function Projects() {
                     </Select>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Git Repository</Label>
-                <Input placeholder="https://github.com/user/repo.git" value={form.git_repository} onChange={e => setForm({ ...form, git_repository: e.target.value })} className="bg-background font-mono text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Branch</Label>
-                <Input placeholder="main" value={form.branch} onChange={e => setForm({ ...form, branch: e.target.value })} className="bg-background font-mono text-sm" />
-              </div>
+              {usesRepository && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Git Repository</Label>
+                    <Input placeholder="https://github.com/user/repo.git" value={form.git_repository} onChange={e => setForm({ ...form, git_repository: e.target.value })} className="bg-background font-mono text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Branch</Label>
+                    <Input placeholder="main" value={form.branch} onChange={e => setForm({ ...form, branch: e.target.value })} className="bg-background font-mono text-sm" />
+                  </div>
+                </>
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Project Type</Label>
                 <Select 
@@ -276,6 +315,7 @@ export default function Projects() {
                       ...form,
                       project_type: val,
                       dockerfile_source: val === "dockerfile" ? form.dockerfile_source : "repo",
+                      compose_source: val === "compose" ? form.compose_source : "repo",
                     })
                   }
                 >
@@ -326,7 +366,7 @@ export default function Projects() {
                       {form.dockerfile_source === "upload" && (
                         <div className="space-y-1.5">
                           <Label className="text-xs text-muted-foreground">Upload Dockerfile</Label>
-                          <Input type="file" accept=".dockerfile,.txt,text/plain" onChange={handleDockerfileUpload} className="bg-background text-sm" />
+                          <Input type="file" accept=".dockerfile,.txt,text/plain" onChange={handleDefinitionUpload} className="bg-background text-sm" />
                           <p className="text-[10px] text-muted-foreground">Setelah diupload, isi file akan muncul di textarea dan masih bisa Anda edit.</p>
                         </div>
                       )}
@@ -345,9 +385,59 @@ export default function Projects() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Compose File</Label>
-                  <Input placeholder="docker-compose.yml" value={form.compose_file} onChange={e => setForm({ ...form, compose_file: e.target.value })} className="bg-background font-mono text-sm" />
+                <div className="space-y-4 sm:col-span-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Compose File</Label>
+                      <Input placeholder="docker-compose.yml" value={form.compose_file} onChange={e => setForm({ ...form, compose_file: e.target.value })} className="bg-background font-mono text-sm" />
+                      <p className="text-[10px] text-muted-foreground">Lokasi file Docker Compose di dalam workspace build.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Compose Source</Label>
+                      <Select
+                        value={form.compose_source}
+                        onValueChange={(value: "repo" | "upload" | "textarea") =>
+                          setForm({
+                            ...form,
+                            compose_source: value,
+                            compose_content: value === "repo" ? "" : form.compose_content,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="Select source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="repo">Use file from repo</SelectItem>
+                          <SelectItem value="upload">Upload Compose file</SelectItem>
+                          <SelectItem value="textarea">Paste in textarea</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {form.compose_source !== "repo" && (
+                    <div className="space-y-3 rounded-md border border-border p-3 bg-muted/20">
+                      {form.compose_source === "upload" && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Upload Compose File</Label>
+                          <Input type="file" accept=".yml,.yaml,.txt,text/plain" onChange={handleDefinitionUpload} className="bg-background text-sm" />
+                          <p className="text-[10px] text-muted-foreground">Setelah diupload, isi file akan muncul di textarea dan masih bisa Anda edit.</p>
+                        </div>
+                      )}
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Compose Content</Label>
+                        <Textarea
+                          placeholder={"services:\n  db:\n    image: mysql:8.0\n    ports:\n      - \"3306:3306\""}
+                          value={form.compose_content}
+                          onChange={(e) => setForm({ ...form, compose_content: e.target.value })}
+                          className="min-h-[220px] bg-background font-mono text-xs"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Konten ini akan ditulis ke `compose_file` sebelum `docker compose up` dijalankan.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -391,7 +481,7 @@ export default function Projects() {
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground">Environment Variables</Label>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={loadEnvFromRepo} disabled={loadingEnv} className="h-6 text-xs">
+                  <Button size="sm" variant="ghost" onClick={loadEnvFromRepo} disabled={loadingEnv || !usesRepository} className="h-6 text-xs">
                     <DownloadCloud className="h-3 w-3 mr-1" />
                     {loadingEnv ? "Loading..." : "Load from Repo"}
                   </Button>

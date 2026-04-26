@@ -5,7 +5,7 @@ import { config } from '../config/env';
 import db from '../db/database';
 import fs from 'fs';
 import path from 'path';
-import { cloneRepository } from './git.service';
+import { cloneRepository, prepareBuildDirectory } from './git.service';
 import { 
   buildImage, 
   runContainer, 
@@ -47,6 +47,12 @@ function writeCustomDockerfile(buildDir: string, dockerfilePath: string, dockerf
   fs.writeFileSync(targetPath, dockerfileContent, 'utf-8');
 }
 
+function writeCustomComposeFile(buildDir: string, composeFile: string, composeContent: string) {
+  const targetPath = path.join(buildDir, composeFile);
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, composeContent, 'utf-8');
+}
+
 const worker = new Worker('deployment-queue', async (job: Job) => {
   const { projectId, userId } = job.data;
   
@@ -59,11 +65,20 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
     if (io) io.emit('project-update', { id: projectId, status: 'building' });
 
     logMessage(projectId, `Starting deployment job for ${project.name}...`);
-    logMessage(projectId, `Cloning ${project.git_repository}...`);
+    let buildDir = '';
+    const needsRepository = (
+      (project.project_type === 'dockerfile' && project.dockerfile_source === 'repo') ||
+      (project.project_type === 'compose' && project.compose_source === 'repo')
+    );
 
-    // Step 1: Clone
-    const buildDir = await cloneRepository(projectId, project.git_repository, project.branch, (msg) => logMessage(projectId, msg));
-    logMessage(projectId, 'Repository cloned successfully');
+    if (needsRepository) {
+      logMessage(projectId, `Cloning ${project.git_repository}...`);
+      buildDir = await cloneRepository(projectId, project.git_repository, project.branch, (msg) => logMessage(projectId, msg));
+      logMessage(projectId, 'Repository cloned successfully');
+    } else {
+      buildDir = prepareBuildDirectory(projectId);
+      logMessage(projectId, 'Using generated build workspace without repository clone');
+    }
 
     // Step 1.5: Inject Env Vars
     if (project.env_vars) {
@@ -79,6 +94,11 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
     let containerId = '';
 
     if (project.project_type === 'compose') {
+       if (project.compose_source && project.compose_source !== 'repo' && project.compose_content) {
+         writeCustomComposeFile(buildDir, project.compose_file, project.compose_content);
+         logMessage(projectId, `Custom Compose file written to ${project.compose_file}`);
+       }
+
        // Replace Port in Compose
        if (project.port) {
          replacePortInCompose(buildDir, project.compose_file, project.port);

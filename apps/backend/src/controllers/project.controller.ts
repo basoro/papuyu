@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { customAlphabet } from 'nanoid';
 const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 6);
 import db from '../db/database';
@@ -15,7 +15,10 @@ const PROJECT_PUBLIC_COLUMNS = `
   projects.branch as branch,
   projects.project_type as project_type,
   projects.dockerfile_path as dockerfile_path,
+  projects.dockerfile_content as dockerfile_content,
   projects.compose_file as compose_file,
+  projects.compose_source as compose_source,
+  projects.compose_content as compose_content,
   projects.port as port,
   projects.env_vars as env_vars,
   projects.subdomain as subdomain,
@@ -88,6 +91,8 @@ export function createProject(req: AuthRequest, res: Response) {
     ram_limit,
     dockerfile_source,
     dockerfile_content,
+    compose_source,
+    compose_content,
   } = req.body;
   const userId = req.userId!;
   const userRole = req.userRole;
@@ -96,9 +101,19 @@ export function createProject(req: AuthRequest, res: Response) {
   const finalComposeFile = compose_file || 'docker-compose.yml';
   const finalDockerfileSource = dockerfile_source || 'repo';
   const finalDockerfileContent = typeof dockerfile_content === 'string' ? dockerfile_content.trim() : '';
+  const finalComposeSource = compose_source || 'repo';
+  const finalComposeContent = typeof compose_content === 'string' ? compose_content.trim() : '';
+  const needsRepository = (
+    (finalProjectType === 'dockerfile' && finalDockerfileSource === 'repo') ||
+    (finalProjectType === 'compose' && finalComposeSource === 'repo')
+  );
 
-  if (!name || !git_repository) {
-    return res.status(400).json({ error: 'Name and Git Repository are required' });
+  if (!name) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+
+  if (needsRepository && !git_repository) {
+    return res.status(400).json({ error: 'Git Repository is required when using file from repo' });
   }
 
   if (subdomain && !/^[a-z0-9.-]+$/.test(subdomain)) {
@@ -123,6 +138,16 @@ export function createProject(req: AuthRequest, res: Response) {
     return res.status(400).json({ error: 'Compose file path must be a safe relative path inside the repository' });
   }
 
+  if (finalProjectType === 'compose') {
+    if (!['repo', 'upload', 'textarea'].includes(finalComposeSource)) {
+      return res.status(400).json({ error: 'Invalid Compose source' });
+    }
+
+    if (finalComposeSource !== 'repo' && !finalComposeContent) {
+      return res.status(400).json({ error: 'Compose content is required for upload or textarea source' });
+    }
+  }
+
   // Enforce RAM limits based on role
   let finalRamLimit = ram_limit ? parseInt(ram_limit, 10) : 0;
   if (userRole === 'user') {
@@ -138,15 +163,15 @@ export function createProject(req: AuthRequest, res: Response) {
       INSERT INTO projects (
         id, name, git_repository, branch, dockerfile_path, port, user_id,
         project_type, compose_file, env_vars, subdomain, waf_enabled, ram_limit,
-        dockerfile_source, dockerfile_content
+        dockerfile_source, dockerfile_content, compose_source, compose_content
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     stmt.run(
       id,
       name,
-      git_repository,
+      git_repository || null,
       branch || 'main',
       finalDockerfilePath,
       port || 80,
@@ -158,7 +183,9 @@ export function createProject(req: AuthRequest, res: Response) {
       waf_enabled ? 1 : 0,
       finalRamLimit,
       finalProjectType === 'dockerfile' ? finalDockerfileSource : 'repo',
-      finalProjectType === 'dockerfile' && finalDockerfileSource !== 'repo' ? finalDockerfileContent : null
+      finalProjectType === 'dockerfile' && finalDockerfileSource !== 'repo' ? finalDockerfileContent : null,
+      finalProjectType === 'compose' ? finalComposeSource : 'repo',
+      finalProjectType === 'compose' && finalComposeSource !== 'repo' ? finalComposeContent : null
     );
 
     const project = db.prepare(`SELECT ${PROJECT_PUBLIC_COLUMNS} FROM projects WHERE id = ?`).get(id);
