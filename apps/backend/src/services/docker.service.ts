@@ -169,29 +169,45 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
     );
   }
 
-  const runArgs = ['run', '-d', '--name', containerName, '--network', 'papuyu-network'];
+  const uniqueNetworks = Array.from(new Set([
+    ...(extraNetworks.filter(Boolean)),
+    'papuyu-network',
+  ]));
+  for (const networkName of uniqueNetworks) {
+    ensureDockerNetwork(networkName);
+  }
+
+  const primaryNetwork = uniqueNetworks[0];
+  const additionalNetworks = uniqueNetworks.slice(1);
+
+  const createArgs = ['create', '--name', containerName, '--network', primaryNetwork];
   
   if (ramLimitMB && ramLimitMB > 0) {
-    runArgs.push('--memory', `${ramLimitMB}m`);
+    createArgs.push('--memory', `${ramLimitMB}m`);
     // Optional: Also set swap limit to prevent swapping out to disk, usually equal to memory or slightly larger
-    runArgs.push('--memory-swap', `${ramLimitMB}m`);
+    createArgs.push('--memory-swap', `${ramLimitMB}m`);
     if (onLog) onLog(`Applying RAM limit: ${ramLimitMB}MB`);
   }
 
-  runArgs.push(...labelArgs, imageName);
+  createArgs.push(...labelArgs, imageName);
 
-  // Connect to papuyu-network and do NOT map host port
   const output = await execStream(
     'docker',
-    runArgs,
+    createArgs,
     {},
     onLog
   );
 
-  const additionalNetworks = extraNetworks.filter((network) => network && network !== 'papuyu-network');
   if (additionalNetworks.length > 0) {
     await connectContainerToNetworks(containerName, additionalNetworks, onLog);
   }
+
+  await execStream(
+    'docker',
+    ['start', containerName],
+    {},
+    onLog
+  );
 
   return output.trim(); // container ID
 }

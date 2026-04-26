@@ -47,15 +47,26 @@ export default function DatabasesPage() {
     [projects]
   );
 
-  const fetchDatabases = useCallback(async () => {
-    setIsLoading(true);
+  const hasProvisioningDatabase = useMemo(
+    () => databases.some((database) => database.status === "provisioning"),
+    [databases]
+  );
+
+  const fetchDatabases = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
     try {
       const data = await apiRequest("/databases");
       setDatabases(data);
     } catch (error: any) {
-      toast({ title: "Failed to fetch databases", description: error.message, variant: "destructive" });
+      if (!options?.silent) {
+        toast({ title: "Failed to fetch databases", description: error.message, variant: "destructive" });
+      }
     } finally {
-      setIsLoading(false);
+      if (!options?.silent) {
+        setIsLoading(false);
+      }
     }
   }, [toast]);
 
@@ -63,6 +74,18 @@ export default function DatabasesPage() {
     fetchDatabases();
     fetchProjects();
   }, [fetchDatabases, fetchProjects]);
+
+  useEffect(() => {
+    if (!hasProvisioningDatabase) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void fetchDatabases({ silent: true });
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [fetchDatabases, hasProvisioningDatabase]);
 
   const createDatabase = async () => {
     if (!name || !dbName || !username) {
