@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   FolderGit2,
   Rocket,
+  Database,
   Users,
   Settings,
   LogOut,
@@ -10,7 +11,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
   Sidebar,
@@ -28,6 +28,7 @@ import {
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderGit2 },
+  { title: "Databases", url: "/databases", icon: Database },
   { title: "Deployments", url: "/deployments", icon: Rocket },
 ];
 
@@ -44,7 +45,6 @@ const bottomItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
   const { user, logout, isAdmin } = useAuth();
 
   return (

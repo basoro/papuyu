@@ -14,6 +14,7 @@ if (fs.existsSync(rootEnvPath)) {
 export const config = {
   port: process.env.PORT || 4000,
   jwtSecret: process.env.JWT_SECRET || 'fallback-secret-change-me',
+  secretEncryptionKey: process.env.SECRET_ENCRYPTION_KEY || process.env.JWT_SECRET || 'fallback-secret-change-me',
   dbPath: process.env.DB_PATH || path.join(__dirname, '../../../../data/papuyu.db'),
   redisHost: process.env.REDIS_HOST || '127.0.0.1',
   redisPort: parseInt(process.env.REDIS_PORT || '6379'),

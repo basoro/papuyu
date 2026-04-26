@@ -14,6 +14,8 @@ import {
   replacePortInDockerfile, 
   injectEnvVars 
 } from './docker.service';
+import { SHARED_DATABASE_NETWORK } from './managed-db.service';
+import { decryptSecret } from '../utils/secrets';
 
 const connection = new IORedis({
   host: config.redisHost,
@@ -53,6 +55,72 @@ function writeCustomComposeFile(buildDir: string, composeFile: string, composeCo
   fs.writeFileSync(targetPath, composeContent, 'utf-8');
 }
 
+function getManagedDatabaseEnvVars(projectId: string): { envVars: Array<{ key: string; value: string }>; networks: string[] } {
+  const attachments = db.prepare(`
+    SELECT
+      project_database_attachments.alias as alias,
+      managed_databases.engine as engine,
+      managed_databases.host as host,
+      managed_databases.port as port,
+      managed_databases.db_name as db_name,
+      managed_databases.username as username,
+      managed_databases.encrypted_password as encrypted_password,
+      managed_databases.network_name as network_name
+    FROM project_database_attachments
+    INNER JOIN managed_databases ON managed_databases.id = project_database_attachments.database_id
+    WHERE project_database_attachments.project_id = ?
+    ORDER BY project_database_attachments.created_at ASC
+  `).all(projectId) as any[];
+
+  if (attachments.length === 0) {
+    return { envVars: [], networks: [] };
+  }
+
+  const envVars: Array<{ key: string; value: string }> = [];
+  const networks = new Set<string>();
+
+  for (const attachment of attachments) {
+    const password = decryptSecret(attachment.encrypted_password);
+    const alias = String(attachment.alias || 'primary')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'PRIMARY';
+
+    if (attachment.network_name) {
+      networks.add(String(attachment.network_name));
+    } else {
+      networks.add(SHARED_DATABASE_NETWORK);
+    }
+
+    if (attachment.engine === 'mysql') {
+      if (alias === 'PRIMARY') {
+        envVars.push(
+          { key: 'DB_HOST', value: String(attachment.host) },
+          { key: 'DB_PORT', value: String(attachment.port) },
+          { key: 'DB_NAME', value: String(attachment.db_name) },
+          { key: 'DB_USER', value: String(attachment.username) },
+          { key: 'DB_PASSWORD', value: password },
+          { key: 'MYSQL_HOST', value: String(attachment.host) },
+          { key: 'MYSQL_PORT', value: String(attachment.port) },
+          { key: 'MYSQL_DATABASE', value: String(attachment.db_name) },
+          { key: 'MYSQL_USER', value: String(attachment.username) },
+          { key: 'MYSQL_PASSWORD', value: password },
+        );
+      } else {
+        envVars.push(
+          { key: `${alias}_HOST`, value: String(attachment.host) },
+          { key: `${alias}_PORT`, value: String(attachment.port) },
+          { key: `${alias}_NAME`, value: String(attachment.db_name) },
+          { key: `${alias}_USER`, value: String(attachment.username) },
+          { key: `${alias}_PASSWORD`, value: password },
+        );
+      }
+    }
+  }
+
+  return { envVars, networks: Array.from(networks) };
+}
+
 const worker = new Worker('deployment-queue', async (job: Job) => {
   const { projectId, userId } = job.data;
   
@@ -80,12 +148,15 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
       logMessage(projectId, 'Using generated build workspace without repository clone');
     }
 
+    const managedDbInjection = getManagedDatabaseEnvVars(projectId);
+
     // Step 1.5: Inject Env Vars
-    if (project.env_vars) {
+    if (project.env_vars || managedDbInjection.envVars.length > 0) {
       try {
-        const envVars = JSON.parse(project.env_vars);
-        injectEnvVars(buildDir, envVars);
-        logMessage(projectId, `Injected ${envVars.length} environment variables`);
+        const envVars = project.env_vars ? JSON.parse(project.env_vars) : [];
+        const mergedEnvVars = [...envVars, ...managedDbInjection.envVars];
+        injectEnvVars(buildDir, mergedEnvVars);
+        logMessage(projectId, `Injected ${mergedEnvVars.length} environment variables`);
       } catch (e) {
         console.error('Failed to parse env_vars', e);
       }
@@ -107,7 +178,7 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
 
        // Docker Compose Logic
        logMessage(projectId, `Starting Docker Compose with ${project.compose_file}...`);
-       await composeUp(projectId, buildDir, project.compose_file, project.port, project.subdomain || undefined, project.waf_enabled === 1, project.ram_limit || 0, (msg: string) => logMessage(projectId, msg));
+       await composeUp(projectId, buildDir, project.compose_file, project.port, project.subdomain || undefined, project.waf_enabled === 1, project.ram_limit || 0, (msg: string) => logMessage(projectId, msg), managedDbInjection.networks);
        logMessage(projectId, 'Docker Compose services started');
        containerId = 'compose-group';
 
@@ -129,7 +200,7 @@ const worker = new Worker('deployment-queue', async (job: Job) => {
       logMessage(projectId, 'Docker image built successfully');
   
       logMessage(projectId, `Starting container on port ${project.port}...`);
-      containerId = await runContainer(projectId, project.port, project.subdomain || undefined, project.waf_enabled === 1, project.ram_limit || 0, (msg: string) => logMessage(projectId, msg));
+      containerId = await runContainer(projectId, project.port, project.subdomain || undefined, project.waf_enabled === 1, project.ram_limit || 0, (msg: string) => logMessage(projectId, msg), managedDbInjection.networks);
       logMessage(projectId, `Container running: ${containerId.substring(0, 12)}`);
     }
 

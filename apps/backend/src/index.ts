@@ -9,6 +9,7 @@ import deployRoutes from './routes/deploy.routes';
 import logsRoutes from './routes/logs.routes';
 import userRoutes from './routes/user.routes';
 import systemRoutes from './routes/system.routes';
+import databaseRoutes from './routes/database.routes';
 
 import http from 'http';
 import { Server, Socket } from 'socket.io';
@@ -103,6 +104,7 @@ app.use('/', deployRoutes); // /deploy/:projectId, /restart/:projectId, /stop/:p
 app.use('/logs', logsRoutes);
 app.use('/users', userRoutes);
 app.use('/system', systemRoutes);
+app.use('/databases', databaseRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

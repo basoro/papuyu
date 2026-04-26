@@ -21,6 +21,28 @@ function runDocker(args: string[], opts?: { timeout?: number; stdio?: 'pipe' | '
   }).toString();
 }
 
+export function ensureDockerNetwork(networkName: string): void {
+  try {
+    runDocker(['network', 'inspect', networkName], { timeout: 15_000 });
+  } catch {
+    runDocker(['network', 'create', networkName], { timeout: 30_000 });
+  }
+}
+
+async function connectContainerToNetworks(containerName: string, networks: string[], onLog?: (msg: string) => void) {
+  for (const networkName of networks) {
+    ensureDockerNetwork(networkName);
+    try {
+      await execStream('docker', ['network', 'connect', networkName, containerName], {}, onLog);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      if (!message.includes('already exists')) {
+        throw error;
+      }
+    }
+  }
+}
+
 function execStream(command: string, args: string[], options: any, onLog?: (msg: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, { ...options, shell: false });
@@ -100,7 +122,7 @@ export async function buildImage(projectId: string, buildDir: string, dockerfile
   );
 }
 
-export async function runContainer(projectId: string, port: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void): Promise<string> {
+export async function runContainer(projectId: string, port: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void, extraNetworks: string[] = []): Promise<string> {
   const safeProjectId = canonicalId(projectId);
   const imageName = `papuyu-${safeProjectId}:latest`;
   const containerName = `papuyu-${safeProjectId}`;
@@ -165,6 +187,11 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
     {},
     onLog
   );
+
+  const additionalNetworks = extraNetworks.filter((network) => network && network !== 'papuyu-network');
+  if (additionalNetworks.length > 0) {
+    await connectContainerToNetworks(containerName, additionalNetworks, onLog);
+  }
 
   return output.trim(); // container ID
 }
@@ -383,7 +410,7 @@ export function replacePortInDockerfile(buildDir: string, dockerfilePath: string
   }
 }
 
-export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void): Promise<void> {
+export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void, extraNetworks: string[] = []): Promise<void> {
   const safeProjectId = canonicalId(projectId);
   const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   const filePath = resolveComposeFile(buildDir, composeFile);
@@ -431,13 +458,23 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
           memory: ${ramLimitMB}M`;
       }
 
+      const externalNetworks = Array.from(new Set(extraNetworks.filter(Boolean)));
+      for (const networkName of externalNetworks) {
+        ensureDockerNetwork(networkName);
+      }
+
+      const extraNetworkList = externalNetworks.map((networkName) => `\n      - ${networkName}`).join('');
+      const extraNetworkDefinitions = externalNetworks.map((networkName) => `
+  ${networkName}:
+    external: true`).join('');
+
       const overrideContent = `
 version: '3.8'
 services:
   ${serviceName}:
     networks:
       - default
-      - papuyu-network
+      - papuyu-network${extraNetworkList}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.papuyu-${safeProjectId}.rule=Host(\`${host}\`)"
@@ -449,7 +486,7 @@ networks:
   default:
     name: ${projectName}_default
   papuyu-network:
-    external: true
+    external: true${extraNetworkDefinitions}
 `;
       overridePath = path.join(buildDir, 'docker-compose.override.yml');
       fs.writeFileSync(overridePath, overrideContent);
@@ -507,7 +544,7 @@ export function composeDown(projectId: string, buildDir: string, composeFile: st
   }
 }
 
-export function composeStop(projectId: string, buildDir: string, composeFile: string): void {
+export function composeStop(projectId: string, _buildDir: string, _composeFile: string): void {
   const safeProjectId = canonicalId(projectId);
   const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   
@@ -522,7 +559,7 @@ export function composeStop(projectId: string, buildDir: string, composeFile: st
   }
 }
 
-export function composeStart(projectId: string, buildDir: string, composeFile: string): void {
+export function composeStart(projectId: string, _buildDir: string, _composeFile: string): void {
   const safeProjectId = canonicalId(projectId);
   const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   

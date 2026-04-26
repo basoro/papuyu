@@ -51,3 +51,34 @@ CREATE TABLE IF NOT EXISTS deployment_logs (
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS managed_databases (
+  id                  TEXT PRIMARY KEY,
+  name                TEXT NOT NULL UNIQUE,
+  engine              TEXT NOT NULL,              -- mysql
+  version             TEXT NOT NULL DEFAULT '8.0',
+  db_name             TEXT NOT NULL,
+  username            TEXT NOT NULL,
+  encrypted_password  TEXT NOT NULL,
+  root_password       TEXT NOT NULL,
+  host                TEXT NOT NULL,
+  port                INTEGER NOT NULL DEFAULT 3306,
+  container_name      TEXT NOT NULL UNIQUE,
+  volume_name         TEXT NOT NULL UNIQUE,
+  network_name        TEXT NOT NULL DEFAULT 'papuyu-services-network',
+  status              TEXT DEFAULT 'provisioning', -- provisioning | running | failed | stopped
+  user_id             INTEGER NOT NULL,
+  created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS project_database_attachments (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id   TEXT NOT NULL,
+  database_id  TEXT NOT NULL,
+  alias        TEXT DEFAULT 'primary',
+  created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(project_id, database_id),
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (database_id) REFERENCES managed_databases(id) ON DELETE CASCADE
+);

@@ -16,6 +16,7 @@ import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import AdminDocker from "./pages/AdminDocker";
 import AdminWaf from "./pages/AdminWaf";
+import DatabasesPage from "./pages/Databases";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+      <Route path="/databases" element={<ProtectedRoute><DatabasesPage /></ProtectedRoute>} />
       <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
       <Route path="/deployments" element={<ProtectedRoute><Deployments /></ProtectedRoute>} />
       <Route path="/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
