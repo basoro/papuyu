@@ -77,10 +77,6 @@ CREATE TABLE IF NOT EXISTS managed_databases (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_managed_databases_public_subdomain
-ON managed_databases(public_subdomain)
-WHERE public_subdomain IS NOT NULL;
-
 CREATE TABLE IF NOT EXISTS project_database_attachments (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id   TEXT NOT NULL,
