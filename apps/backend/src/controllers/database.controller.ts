@@ -11,6 +11,7 @@ import {
   SHARED_DATABASE_NETWORK,
   waitForManagedDatabaseHealthy,
 } from '../services/managed-db.service';
+import { deploymentQueue } from '../services/queue.service';
 import { decryptSecret, encryptSecret, generateRandomSecret } from '../utils/secrets';
 
 const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 6);
@@ -58,6 +59,28 @@ function resolvePublicHost(subdomain?: string | null): string | null {
   }
 
   return subdomain.includes('.') ? subdomain : `${subdomain}.${config.domain}`;
+}
+
+function logProjectMessage(projectId: string, message: string, level = 'info') {
+  const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+  db.prepare('INSERT INTO deployment_logs (project_id, message, level) VALUES (?, ?, ?)')
+    .run(projectId, `[${timestamp}] ${message}`, level);
+}
+
+async function queueProjectRedeploy(project: any, reason: string) {
+  if (!project?.id) {
+    return false;
+  }
+
+  if (project.status === 'queued' || project.status === 'building') {
+    logProjectMessage(project.id, `${reason}. Project already ${project.status}, skipping duplicate redeploy queue.`);
+    return false;
+  }
+
+  await deploymentQueue.add('deploy', { projectId: project.id, userId: project.user_id });
+  db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('queued', project.id);
+  logProjectMessage(project.id, `${reason}. Deployment queued to apply managed database network and environment variables.`);
+  return true;
 }
 
 function validatePublicAccessSettings(options: {
@@ -428,8 +451,15 @@ export function attachManagedDatabase(req: AuthRequest, res: Response) {
     return res.status(500).json({ error: 'Failed to attach database to project' });
   }
 
+  void queueProjectRedeploy(project, `Managed database ${database.name} attached`)
+    .catch((error) => {
+      console.error(`Failed to queue redeploy for project ${project.id} after attach:`, error);
+      logProjectMessage(project.id, `Managed database attached, but failed to queue redeploy automatically: ${error.message || error}`, 'error');
+    });
+
   res.json({
     ok: true,
+    redeploy_queued: project.status !== 'queued' && project.status !== 'building',
     env_preview: {
       DB_HOST: database.host,
       DB_PORT: String(database.port),
@@ -459,7 +489,16 @@ export function detachManagedDatabase(req: AuthRequest, res: Response) {
   }
 
   db.prepare('DELETE FROM project_database_attachments WHERE database_id = ? AND project_id = ?').run(req.params.id, String(project_id));
-  res.json({ ok: true });
+  void queueProjectRedeploy(project, `Managed database ${database.name} detached`)
+    .catch((error) => {
+      console.error(`Failed to queue redeploy for project ${project.id} after detach:`, error);
+      logProjectMessage(project.id, `Managed database detached, but failed to queue redeploy automatically: ${error.message || error}`, 'error');
+    });
+
+  res.json({
+    ok: true,
+    redeploy_queued: project.status !== 'queued' && project.status !== 'building',
+  });
 }
 
 export function deleteManagedDatabase(req: AuthRequest, res: Response) {
