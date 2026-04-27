@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, Database, Globe, Link2, Plus, RefreshCw, Settings2, Trash2 } from "lucide-react";
+import { Copy, Database, Eye, EyeOff, Globe, Link2, Plus, RefreshCw, Settings2, Trash2, Wand2 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import {
   AlertDialog,
@@ -22,10 +22,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useProjects } from "@/context/ProjectContext";
+import { Switch } from "@/components/ui/switch";
 
 interface ManagedDatabase {
   id: string;
@@ -75,9 +75,8 @@ export default function DatabasesPage() {
   const [name, setName] = useState("");
   const [dbName, setDbName] = useState("");
   const [username, setUsername] = useState("");
-  const [publicAccessEnabled, setPublicAccessEnabled] = useState(false);
-  const [publicSubdomain, setPublicSubdomain] = useState("");
-  const [publicAllowedIps, setPublicAllowedIps] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [editPublicAccessEnabled, setEditPublicAccessEnabled] = useState(false);
   const [editPublicSubdomain, setEditPublicSubdomain] = useState("");
   const [editPublicAllowedIps, setEditPublicAllowedIps] = useState("");
@@ -129,14 +128,37 @@ export default function DatabasesPage() {
     return () => window.clearInterval(interval);
   }, [fetchDatabases, hasProvisioningDatabase]);
 
-  const createDatabase = async () => {
-    if (!name || !dbName || !username) {
-      toast({ title: "Field wajib diisi", description: "Isi name, database name, dan username terlebih dahulu.", variant: "destructive" });
+  const generatePassword = useCallback(() => {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+    const array = new Uint32Array(20);
+    crypto.getRandomValues(array);
+    const generated = Array.from(array, (value) => alphabet[value % alphabet.length]).join("");
+    setPassword(generated);
+    setShowPassword(true);
+  }, []);
+
+  const copyPassword = useCallback(async () => {
+    if (!password) {
+      toast({ title: "Password kosong", description: "Generate atau isi password terlebih dahulu.", variant: "destructive" });
       return;
     }
 
-    if (publicAccessEnabled && !publicSubdomain.trim()) {
-      toast({ title: "Public Subdomain wajib diisi", description: "Isi subdomain publik jika ingin expose MySQL ke publik.", variant: "destructive" });
+    try {
+      await navigator.clipboard.writeText(password);
+      toast({ title: "Password disalin", description: "Password MySQL berhasil disalin ke clipboard." });
+    } catch {
+      toast({ title: "Gagal menyalin", description: "Clipboard tidak tersedia di browser ini.", variant: "destructive" });
+    }
+  }, [password, toast]);
+
+  const createDatabase = async () => {
+    if (!name || !dbName || !username || !password) {
+      toast({ title: "Field wajib diisi", description: "Isi name, database name, username, dan password terlebih dahulu.", variant: "destructive" });
+      return;
+    }
+
+    if (password.length < 8) {
+      toast({ title: "Password terlalu pendek", description: "Gunakan password minimal 8 karakter untuk MySQL.", variant: "destructive" });
       return;
     }
 
@@ -148,23 +170,17 @@ export default function DatabasesPage() {
         version: "8.0",
         db_name: dbName,
         username,
-        public_access_enabled: publicAccessEnabled,
-        public_subdomain: publicAccessEnabled ? publicSubdomain.trim() : undefined,
-        public_allowed_ips: publicAccessEnabled ? publicAllowedIps : undefined,
+        password,
       });
 
       setDatabases((prev) => [{ ...created, attachments: [] }, ...prev]);
       setName("");
       setDbName("");
       setUsername("");
-      setPublicAccessEnabled(false);
-      setPublicSubdomain("");
-      setPublicAllowedIps("");
+      setPassword("");
       toast({
         title: "Managed MySQL dibuat",
-        description: publicAccessEnabled && created.public_host
-          ? `Host internal ${created.host}:${created.port} dan host publik ${created.public_host}:${created.public_port} siap dipakai.`
-          : `Host internal ${created.host}:${created.port} siap dipakai.`,
+        description: `Host internal ${created.host}:${created.port} siap dipakai. Aktifkan akses publik nanti lewat tombol Edit Public Access.`,
       });
     } catch (error: any) {
       toast({ title: "Gagal membuat database", description: error.message, variant: "destructive" });
@@ -304,7 +320,8 @@ export default function DatabasesPage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 p-4 border border-border rounded-md bg-card">
+        <div className="space-y-4 p-4 border border-border rounded-md bg-card">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Resource Name</Label>
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="mysql-main" />
@@ -317,35 +334,42 @@ export default function DatabasesPage() {
             <Label className="text-xs text-muted-foreground">App Username</Label>
             <Input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="app_user" />
           </div>
-          <div className="space-y-2 rounded-md border border-border p-3 bg-muted/20">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground">Expose Publicly</Label>
-                <p className="text-[10px] text-muted-foreground mt-1">Aktifkan akses MySQL publik via Traefik TCP. Client harus memakai TLS.</p>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">App Password</Label>
+            <div className="flex gap-2">
+              <div className="flex flex-1 gap-2">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+                <Button type="button" size="icon" variant="outline" onClick={() => void copyPassword()} title="Copy password">
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <div className="relative flex-1">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Minimal 8 karakter"
+                  className="w-full"
+                />
               </div>
-              <Switch checked={publicAccessEnabled} onCheckedChange={setPublicAccessEnabled} />
+              </div>
+              <Button type="button" variant="outline" onClick={generatePassword} title="Generate password otomatis">
+                <Wand2 className="h-4 w-4 mr-1" /> Generate
+              </Button>
             </div>
-            <Input
-              value={publicSubdomain}
-              onChange={(event) => setPublicSubdomain(event.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ""))}
-              placeholder="mysql-main"
-              disabled={!publicAccessEnabled}
-              className="bg-background"
-            />
-            <textarea
-              value={publicAllowedIps}
-              onChange={(event) => setPublicAllowedIps(event.target.value)}
-              placeholder={"203.0.113.10/32\n198.51.100.0/24"}
-              disabled={!publicAccessEnabled}
-              className="flex min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono"
-            />
-            <p className="text-[10px] text-amber-500">Pastikan server Traefik punya TCP entrypoint MySQL sebelum fitur ini dipakai di production.</p>
-            <p className="text-[10px] text-muted-foreground">Opsional: isi IP/CIDR yang boleh mengakses database publik, satu baris atau dipisahkan koma.</p>
           </div>
           <div className="flex items-end">
             <Button onClick={createDatabase} disabled={isSubmitting} className="papuyu-btn-active w-full">
               <Plus className="h-4 w-4 mr-1" /> {isSubmitting ? "Creating..." : "Create MySQL"}
             </Button>
+          </div>
           </div>
         </div>
 

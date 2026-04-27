@@ -241,13 +241,14 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
     version = '8.0',
     db_name,
     username,
+    password,
     public_access_enabled,
     public_subdomain,
     public_allowed_ips,
   } = req.body || {};
 
-  if (!name || !db_name || !username) {
-    return res.status(400).json({ error: 'name, db_name, and username are required' });
+  if (!name || !db_name || !username || !password) {
+    return res.status(400).json({ error: 'name, db_name, username, and password are required' });
   }
 
   if (engine !== 'mysql') {
@@ -257,6 +258,11 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
   const normalizedName = normalizeDatabaseName(String(name));
   if (!normalizedName) {
     return res.status(400).json({ error: 'Invalid database name' });
+  }
+
+  const userPassword = String(password);
+  if (userPassword.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long' });
   }
 
   const publicAccessEnabled = Boolean(public_access_enabled);
@@ -273,7 +279,6 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
 
   const databaseId = `db_${nanoid()}`;
   const rootPassword = generateRandomSecret(28);
-  const userPassword = generateRandomSecret(24);
   const containerName = buildManagedDatabaseContainerName(databaseId);
   const volumeName = buildManagedDatabaseVolumeName(databaseId);
   const host = containerName;
