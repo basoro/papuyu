@@ -321,7 +321,7 @@ export default function DatabasesPage() {
         </div>
 
         <div className="space-y-4 p-4 border border-border rounded-md bg-card">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Resource Name</Label>
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="mysql-main" />
@@ -334,10 +334,16 @@ export default function DatabasesPage() {
             <Label className="text-xs text-muted-foreground">App Username</Label>
             <Input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="app_user" />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 xl:col-span-2">
             <Label className="text-xs text-muted-foreground">App Password</Label>
-            <div className="flex gap-2">
-              <div className="flex flex-1 gap-2">
+            <div className="space-y-2">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Minimal 8 karakter"
+              />
+              <div className="flex gap-2">
                 <Button
                   type="button"
                   size="icon"
@@ -350,22 +356,13 @@ export default function DatabasesPage() {
                 <Button type="button" size="icon" variant="outline" onClick={() => void copyPassword()} title="Copy password">
                   <Copy className="h-4 w-4" />
                 </Button>
-                <div className="relative flex-1">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Minimal 8 karakter"
-                  className="w-full"
-                />
+                <Button type="button" variant="outline" onClick={generatePassword} title="Generate password otomatis">
+                  <Wand2 className="h-4 w-4 mr-1" /> Generate
+                </Button>
               </div>
-              </div>
-              <Button type="button" variant="outline" onClick={generatePassword} title="Generate password otomatis">
-                <Wand2 className="h-4 w-4 mr-1" /> Generate
-              </Button>
             </div>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end xl:col-span-1">
             <Button onClick={createDatabase} disabled={isSubmitting} className="papuyu-btn-active w-full">
               <Plus className="h-4 w-4 mr-1" /> {isSubmitting ? "Creating..." : "Create MySQL"}
             </Button>
