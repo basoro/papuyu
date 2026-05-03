@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
-        - VITE_BASE_DOMAIN=${PUBLIC_DOMAIN:-localhost}
+        - VITE_BASE_DOMAIN=${DOMAIN:-${SERVER_IP:-localhost}}
         - VITE_SERVER_IP=${SERVER_IP:-localhost}
         - VITE_FORCE_HTTPS=${TRAEFIK_HTTPS_ENABLED:-false}
         - VITE_ADDITIONAL_DOMAINS=${ADDITIONAL_DOMAINS:-}
@@ -15,16 +15,14 @@ services:
       - "5173:80"
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=papuyu-network"
-      - "traefik.http.routers.frontend.rule=Host(`${PUBLIC_DOMAIN:-localhost}`)"
-      - "traefik.http.routers.frontend.service=frontend"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-${SERVER_IP:-localhost}}`)"
       - "traefik.http.routers.frontend.entrypoints=web,websecure"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
     depends_on:
       - backend
     environment:
       - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
-      - VITE_BASE_DOMAIN=${PUBLIC_DOMAIN:-localhost}
+      - VITE_BASE_DOMAIN=${DOMAIN:-${SERVER_IP:-localhost}}
       - VITE_SERVER_IP=${SERVER_IP:-localhost}
       - VITE_FORCE_HTTPS=${TRAEFIK_HTTPS_ENABLED:-false}
       - VITE_ADDITIONAL_DOMAINS=${ADDITIONAL_DOMAINS:-}
@@ -49,8 +47,7 @@ services:
       - NODE_ENV=production
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - DOMAIN=${PUBLIC_DOMAIN:-}
-      - API_DOMAIN=${API_DOMAIN:-}
+      - DOMAIN=${DOMAIN:-}
       - SERVER_IP=${SERVER_IP:-}
       - TRAEFIK_HTTPS_ENABLED=${TRAEFIK_HTTPS_ENABLED:-false}      
     dns:
@@ -59,10 +56,7 @@ services:
 
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=papuyu-network"
-      - "traefik.http.routers.backend.rule=Host(`${API_DOMAIN:-api.localhost}`)"
-      - "traefik.http.routers.backend.service=backend"
-      - "traefik.http.routers.backend.priority=100"
+      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-${SERVER_IP:-localhost}}`)" 
       - "traefik.http.services.backend.loadbalancer.server.port=4000"
       - "traefik.http.routers.backend.entrypoints=web,websecure"
     networks:
