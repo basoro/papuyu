@@ -306,16 +306,25 @@ export default function Projects() {
                 </div>
               </div>
               {usesRepository && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Git Repository</Label>
-                    <Input placeholder="https://github.com/user/repo.git" value={form.git_repository} onChange={e => setForm({ ...form, git_repository: e.target.value })} className="bg-background font-mono text-sm" />
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Git Repository & Branch</Label>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      placeholder="https://github.com/user/repo.git" 
+                      value={form.git_repository} 
+                      onChange={e => setForm({ ...form, git_repository: e.target.value })} 
+                      className="bg-background font-mono text-sm flex-1" 
+                    />
+                    <div className="w-[140px] shrink-0">
+                      <Input 
+                        placeholder="branch" 
+                        value={form.branch} 
+                        onChange={e => setForm({ ...form, branch: e.target.value })} 
+                        className="bg-background font-mono text-sm text-center" 
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Branch</Label>
-                    <Input placeholder="main" value={form.branch} onChange={e => setForm({ ...form, branch: e.target.value })} className="bg-background font-mono text-sm" />
-                  </div>
-                </>
+                </div>
               )}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Project Type</Label>
