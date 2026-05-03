@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS projects (
   status          TEXT DEFAULT 'idle',   -- idle | building | running | stopped | failed
   user_id         INTEGER NOT NULL,
   ram_limit       INTEGER DEFAULT 0,
+  base_domain     TEXT,
   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

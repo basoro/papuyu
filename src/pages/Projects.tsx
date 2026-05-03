@@ -135,6 +135,7 @@ export default function Projects() {
       port: parseInt(form.port) || 3000,
       env_vars: form.env_vars,
       subdomain: finalSubdomain || undefined,
+      base_domain: selectedDomain !== 'custom' ? selectedDomain : undefined,
       waf_enabled: form.waf_enabled,
       ram_limit: form.ram_limit ? parseInt(form.ram_limit) : 0,
     });

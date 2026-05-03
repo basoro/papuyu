@@ -85,7 +85,7 @@ export default function ProjectDetail() {
   const protocol = import.meta.env.VITE_FORCE_HTTPS === 'true' ? 'https' : 'http';
   
   const isPuskesmas = user?.role === 'puskesmas';
-  const effectiveBaseDomain = isPuskesmas ? 'puskesmas.online' : baseDomain;
+  const effectiveBaseDomain = project.base_domain || (isPuskesmas ? 'puskesmas.online' : baseDomain);
 
   const host = project.subdomain 
     ? (project.subdomain.includes('.') ? project.subdomain : `${project.subdomain}.${effectiveBaseDomain}`)

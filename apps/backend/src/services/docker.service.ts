@@ -120,19 +120,19 @@ export async function buildImage(projectId: string, buildDir: string, dockerfile
   );
 }
 
-export async function runContainer(projectId: string, port: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void, extraNetworks: string[] = []): Promise<string> {
+export async function runContainer(projectId: string, port: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void, extraNetworks: string[] = [], baseDomain?: string): Promise<string> {
   const safeProjectId = canonicalId(projectId);
-  const imageName = `papuyu-${safeProjectId}:latest`;
   const containerName = `papuyu-${safeProjectId}`;
+  const imageName = `papuyu-${safeProjectId}`;
 
-  // Stop & remove existing container if any
-  try { 
+  try {
+    // Remove existing container if any
     await execStream('docker', ['rm', '-f', containerName], {}, onLog); 
   } catch {}
 
   // Host rule for Traefik 
-  // Uses config.domain which defaults to nip.io IP fallback or the actual domain from .env
-  const domain = config.domain;
+  // Uses baseDomain if provided, otherwise config.domain which defaults to nip.io IP fallback or the actual domain from .env
+  const domain = baseDomain || config.domain;
   if (subdomain) {
     validateSubdomain(subdomain);
   }
@@ -433,7 +433,7 @@ export function replacePortInDockerfile(buildDir: string, dockerfilePath: string
   }
 }
 
-export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void, extraNetworks: string[] = []): Promise<void> {
+export async function composeUp(projectId: string, buildDir: string, composeFile: string, port?: number, subdomain?: string, wafEnabled?: boolean, ramLimitMB?: number, onLog?: (msg: string) => void, extraNetworks: string[] = [], baseDomain?: string): Promise<void> {
   const safeProjectId = canonicalId(projectId);
   const projectName = `papuyu-${safeProjectId}`.toLowerCase();
   const filePath = resolveComposeFile(buildDir, composeFile);
@@ -450,7 +450,7 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
         validateSubdomain(subdomain);
       }
       
-      const domain = config.domain;
+      const domain = baseDomain || config.domain;
       const host = subdomain 
         ? (subdomain.includes('.') ? subdomain : `${subdomain}.${domain}`) 
         : `${safeProjectId}.${domain}`;

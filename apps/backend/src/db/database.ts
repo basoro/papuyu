@@ -90,6 +90,14 @@ try {
 }
 
 try {
+  const columns = db.prepare("PRAGMA table_info(projects)").all() as any[];
+  const hasBaseDomain = columns.some(c => c.name === 'base_domain');
+  if (!hasBaseDomain) {
+    db.prepare("ALTER TABLE projects ADD COLUMN base_domain TEXT").run();
+  }
+} catch (e) {}
+
+try {
   // Create WAF events table if it doesn't exist
   db.prepare(`
     CREATE TABLE IF NOT EXISTS waf_events (

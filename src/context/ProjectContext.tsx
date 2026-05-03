@@ -26,6 +26,7 @@ export interface Project {
   status: "idle" | "building" | "running" | "stopped" | "failed" | "queued";
   user_id: number;
   user_email?: string;
+  base_domain?: string;
   created_at: string;
   logs: string[];
 }
@@ -47,6 +48,7 @@ export interface CreateProjectPayload {
   waf_enabled?: boolean;
   ram_limit: number;
   user_email?: string;
+  base_domain?: string;
 }
 
 interface ProjectContextType {

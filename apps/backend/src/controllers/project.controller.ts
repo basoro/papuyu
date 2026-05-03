@@ -90,6 +90,7 @@ export function createProject(req: AuthRequest, res: Response) {
     subdomain,
     waf_enabled,
     ram_limit,
+    base_domain,
     dockerfile_source,
     dockerfile_content,
     compose_source,
@@ -149,14 +150,20 @@ export function createProject(req: AuthRequest, res: Response) {
     }
   }
 
-  // Enforce RAM limits based on role
+  // Enforce RAM limits and default base domains based on role
   let finalRamLimit = ram_limit ? parseInt(ram_limit, 10) : 0;
+  let finalBaseDomain = base_domain;
+
   if (userRole === 'user') {
     if (finalRamLimit === 0 || finalRamLimit > 256) finalRamLimit = 256;
   } else if (userRole === 'client') {
     if (finalRamLimit === 0 || finalRamLimit > 512) finalRamLimit = 512;
   } else if (userRole === 'puskesmas') {
     if (finalRamLimit === 0 || finalRamLimit > 1024) finalRamLimit = 1024;
+    // For puskesmas role, default to puskesmas.online if no base_domain provided
+    if (!finalBaseDomain && (!subdomain || !subdomain.includes('.'))) {
+      finalBaseDomain = 'puskesmas.online';
+    }
   }
 
   const id = `prj_${nanoid(6)}`;
@@ -166,9 +173,9 @@ export function createProject(req: AuthRequest, res: Response) {
       INSERT INTO projects (
         id, name, git_repository, branch, dockerfile_path, port, user_id,
         project_type, compose_file, env_vars, subdomain, waf_enabled, ram_limit,
-        dockerfile_source, dockerfile_content, compose_source, compose_content
+        base_domain, dockerfile_source, dockerfile_content, compose_source, compose_content
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     stmt.run(
@@ -185,6 +192,7 @@ export function createProject(req: AuthRequest, res: Response) {
       subdomain || null,
       waf_enabled ? 1 : 0,
       finalRamLimit,
+      finalBaseDomain || null,
       finalProjectType === 'dockerfile' ? finalDockerfileSource : 'repo',
       finalProjectType === 'dockerfile' && finalDockerfileSource !== 'repo' ? finalDockerfileContent : null,
       finalProjectType === 'compose' ? finalComposeSource : 'repo',
