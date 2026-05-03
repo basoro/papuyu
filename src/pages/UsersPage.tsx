@@ -61,7 +61,7 @@ export default function UsersPage() {
     }
   };
 
-  const changeRole = async (id: number, newRole: "admin" | "client" | "user") => {
+  const changeRole = async (id: number, newRole: "admin" | "client" | "user" | "puskesmas") => {
     try {
       await apiRequest(`/users/${id}/role`, "PUT", { role: newRole });
       setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
@@ -147,7 +147,7 @@ export default function UsersPage() {
                   >
                     <option value="user">User (256MB)</option>
                     <option value="client">Client (512MB)</option>
-                    <option value="puskesmas">Puskesmas</option>
+                    <option value="puskesmas">Puskesmas (1GB)</option>
                     <option value="admin">Admin (Unlmt)</option>
                   </select>
                 )}

@@ -464,6 +464,7 @@ export default function Projects() {
                 <p className="text-[10px] text-muted-foreground">
                   {user?.role === 'user' ? "Maksimal 256MB untuk akun User." : 
                    user?.role === 'client' ? "Maksimal 512MB untuk akun Client." : 
+                   user?.role === 'puskesmas' ? "Maksimal 1GB untuk akun Puskesmas." : 
                    "Batas memori (0 = tanpa batas). Contoh: 512 untuk 512MB."}
                 </p>
               </div>

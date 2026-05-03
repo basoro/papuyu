@@ -155,6 +155,8 @@ export function createProject(req: AuthRequest, res: Response) {
     if (finalRamLimit === 0 || finalRamLimit > 256) finalRamLimit = 256;
   } else if (userRole === 'client') {
     if (finalRamLimit === 0 || finalRamLimit > 512) finalRamLimit = 512;
+  } else if (userRole === 'puskesmas') {
+    if (finalRamLimit === 0 || finalRamLimit > 1024) finalRamLimit = 1024;
   }
 
   const id = `prj_${nanoid(6)}`;
