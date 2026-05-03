@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 const createInitialForm = () => ({
   name: "",
   git_repository: "",
-  branch: "main",
+  branch: "master",
   project_type: "dockerfile",
   dockerfile_path: "Dockerfile",
   dockerfile_source: "repo" as "repo" | "upload" | "textarea",
@@ -306,7 +306,7 @@ export default function Projects() {
                 </div>
               </div>
               {usesRepository && (
-                <div className="sm:col-span-2 space-y-1.5">
+                <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Git Repository & Branch</Label>
                   <div className="flex items-center gap-2">
                     <Input 
