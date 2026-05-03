@@ -266,21 +266,10 @@ function resolveComposeFile(buildDir: string, composeFile: string): string {
 function getAllComposeServices(buildDir: string, composeFile: string, envPath: string): string[] {
   try {
       const filePath = resolveComposeFile(buildDir, composeFile);
-      const content = fs.readFileSync(filePath, 'utf-8');
       
-      const servicesMatch = content.match(/^services:\s*\n((?:\s+[a-zA-Z0-9_-]+:\s*\n(?:(?!\s+[a-zA-Z0-9_-]+:\s*\n|\S).*\n)*)+)/m);
-      let services: string[] = [];
-      
-      if (servicesMatch && servicesMatch[1]) {
-         const servicesBlock = servicesMatch[1];
-         const serviceNameRegex = /^\s{2}([a-zA-Z0-9_-]+):/gm;
-         let match;
-         while ((match = serviceNameRegex.exec(servicesBlock)) !== null) {
-             services.push(match[1]);
-         }
-      }
-
-      if (services.length === 0) {
+      // Primary method: Use docker compose config --services
+      // This is the most accurate way to get actual service names
+      try {
           const args = ['compose', '-p', 'papuyu-temp', '-f', filePath];
           if (fs.existsSync(envPath)) {
             args.push('--env-file', envPath);
@@ -288,7 +277,31 @@ function getAllComposeServices(buildDir: string, composeFile: string, envPath: s
           args.push('config', '--services');
           
           const output = runDocker(args, { timeout: 5000 }).trim();
-          services = output.split('\n').filter((s: string) => s.trim() !== '');
+          if (output) {
+              return output.split('\n').map(s => s.trim()).filter(Boolean);
+          }
+      } catch (configError) {
+          // If docker compose config fails (e.g. due to missing env vars or invalid refs),
+          // we fall back to manual regex parsing.
+          console.warn('docker compose config --services failed, falling back to regex', configError);
+      }
+
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const servicesMatch = content.match(/^services:\s*\n((?:\s+[a-zA-Z0-9_-]+:\s*\n(?:(?!\s+[a-zA-Z0-9_-]+:\s*\n|\S).*\n)*)+)/m);
+      let services: string[] = [];
+      
+      if (servicesMatch && servicesMatch[1]) {
+         const servicesBlock = servicesMatch[1];
+         // Service names are typically indented by 2 spaces and end with a colon
+         const serviceNameRegex = /^  ([a-zA-Z0-9_-]+):/gm;
+         let match;
+         while ((match = serviceNameRegex.exec(servicesBlock)) !== null) {
+             const sName = match[1];
+             // Skip extension fields (x-...) and hidden services (...)
+             if (!sName.startsWith('x-') && !sName.startsWith('.')) {
+                services.push(sName);
+             }
+         }
       }
 
       return services;
