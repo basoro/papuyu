@@ -10,8 +10,8 @@ import {
   composeRestart, 
   composeStop,
   composeStart,
-  canonicalId,
 } from '../services/docker.service';
+import { canonicalId } from '../services/constants';
 
 const BUILD_DIR = process.env.BUILD_DIR || '/tmp/papuyu-builds';
 

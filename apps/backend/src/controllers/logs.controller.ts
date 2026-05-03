@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from '../db/database';
 import { AuthRequest } from '../middleware/auth';
 import { getContainerLogs } from '../services/docker.service';
+import { canonicalId } from '../services/constants';
 
 export function getDeploymentLogs(req: AuthRequest, res: Response) {
   const { projectId } = req.params;
@@ -40,7 +41,7 @@ export function getRuntimeLogs(req: AuthRequest, res: Response) {
   if (!project) return res.status(404).json({ error: 'Project not found' });
   
   try {
-    const logs = getContainerLogs(`papuyu-${projectId}`);
+    const logs = getContainerLogs(`papuyu-${canonicalId(projectId)}`);
     res.json({ logs });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to fetch container logs' });

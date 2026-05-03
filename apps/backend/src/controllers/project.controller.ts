@@ -4,6 +4,7 @@ const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 6);
 import db from '../db/database';
 import { AuthRequest } from '../middleware/auth';
 import { deploymentQueue } from '../services/queue.service';
+import { canonicalId } from '../services/constants';
 import path from 'path';
 
 import { execSync } from 'child_process';
@@ -287,7 +288,7 @@ export function deleteProject(req: AuthRequest, res: Response) {
 
   try {
     // We need to use canonicalId for cleanup because container names use canonicalId
-    const safeProjectId = id.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50);
+    const safeProjectId = canonicalId(id);
     
     // Cleanup Docker resources
     if (project.project_type === 'compose') {
