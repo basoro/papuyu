@@ -263,16 +263,11 @@ function resolveComposeFile(buildDir: string, composeFile: string): string {
   return filePath; // Return original if neither exists (let docker fail with clear error)
 }
 
-function getComposeService(buildDir: string, composeFile: string, envPath: string): string {
+function getAllComposeServices(buildDir: string, composeFile: string, envPath: string): string[] {
   try {
       const filePath = resolveComposeFile(buildDir, composeFile);
-      
-      // Instead of relying purely on docker compose config which fails on invalid volume/network references,
-      // we can try to parse the yaml file directly if possible, or fallback to parsing the file content manually.
-      // A quick fallback is to read the file and extract service names using regex.
       const content = fs.readFileSync(filePath, 'utf-8');
       
-      // Simple regex to find service names under 'services:'
       const servicesMatch = content.match(/^services:\s*\n((?:\s+[a-zA-Z0-9_-]+:\s*\n(?:(?!\s+[a-zA-Z0-9_-]+:\s*\n|\S).*\n)*)+)/m);
       let services: string[] = [];
       
@@ -286,7 +281,6 @@ function getComposeService(buildDir: string, composeFile: string, envPath: strin
       }
 
       if (services.length === 0) {
-          // Fallback to docker compose config if regex fails (though config might throw)
           const args = ['compose', '-p', 'papuyu-temp', '-f', filePath];
           if (fs.existsSync(envPath)) {
             args.push('--env-file', envPath);
@@ -297,17 +291,19 @@ function getComposeService(buildDir: string, composeFile: string, envPath: strin
           services = output.split('\n').filter((s: string) => s.trim() !== '');
       }
 
-      // Heuristic: Prefer services that look like web servers
-      const priorities = ['nginx', 'web', 'app', 'frontend', 'server', 'api'];
-      for (const p of priorities) {
-        if (services.includes(p)) return p;
-      }
-
-      return services[0] || 'app'; // Return the first service
+      return services;
   } catch (e) {
-      console.warn('Failed to get compose services, defaulting to "app"', e);
-      return 'app';
+      console.warn('Failed to get compose services', e);
+      return [];
   }
+}
+
+function getPrimaryService(services: string[]): string {
+    const priorities = ['nginx', 'web', 'app', 'frontend', 'server', 'api'];
+    for (const p of priorities) {
+      if (services.includes(p)) return p;
+    }
+    return services[0] || 'app';
 }
 
 export function injectEnvVars(buildDir: string, envVars: { key: string; value: string }[]): void {
@@ -433,13 +429,14 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
   const args = ['compose', '-p', projectName, '-f', filePath];
 
   let overridePath = '';
-  if (port) {
-      const serviceName = getComposeService(buildDir, composeFile, envPath);
+  const allServices = getAllComposeServices(buildDir, composeFile, envPath);
+  
+  if (allServices.length > 0) {
+      const primaryService = getPrimaryService(allServices);
       if (subdomain) {
         validateSubdomain(subdomain);
       }
-      // Host rule for Traefik 
-      // Uses config.domain which defaults to nip.io IP fallback or the actual domain from .env
+      
       const domain = config.domain;
       const host = subdomain 
         ? (subdomain.includes('.') ? subdomain : `${subdomain}.${domain}`) 
@@ -485,19 +482,29 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
   ${networkName}:
     external: true`).join('');
 
-      const overrideContent = `
-version: '3.8'
-services:
-  ${serviceName}:
-    networks:
-      - default
-      - ${SHARED_DATABASE_NETWORK}${extraNetworkList}
+      // Build services section for override
+      const servicesOverride = allServices.map(s => {
+        const isPrimary = s === primaryService;
+        const labels = isPrimary && port ? `
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.papuyu-${safeProjectId}.rule=Host(\`${host}\`)"
       - "traefik.http.routers.papuyu-${safeProjectId}.service=papuyu-${safeProjectId}"
       - "traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}"
-      - "traefik.docker.network=${SHARED_DATABASE_NETWORK}"${tlsLabels}${wafLabels}${deployBlock}
+      - "traefik.docker.network=${SHARED_DATABASE_NETWORK}"${tlsLabels}${wafLabels}` : '';
+        
+        const deploy = isPrimary ? deployBlock : '';
+
+        return `
+  ${s}:
+    networks:
+      - default
+      - ${SHARED_DATABASE_NETWORK}${extraNetworkList}${labels}${deploy}`;
+      }).join('');
+
+      const overrideContent = `
+version: '3.8'
+services: ${servicesOverride}
 
 networks:
   default:
@@ -508,8 +515,7 @@ networks:
       overridePath = path.join(buildDir, 'docker-compose.override.yml');
       fs.writeFileSync(overridePath, overrideContent);
       args.push('-f', overridePath);
-      if (onLog) onLog(`Generated override file for service ${serviceName} with Traefik labels and limits`);
-      else console.log(`Generated override file for service ${serviceName} with Traefik labels and limits`);
+      if (onLog) onLog(`Generated override file for ${allServices.length} services with network attachments`);
   }
 
   if (fs.existsSync(envPath)) {
