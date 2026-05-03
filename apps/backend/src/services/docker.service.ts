@@ -474,7 +474,7 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
           memory: ${ramLimitMB}M`;
       }
 
-      const externalNetworks = Array.from(new Set(extraNetworks.filter(Boolean)));
+      const externalNetworks = Array.from(new Set(extraNetworks.filter(n => n && n !== 'papuyu-network')));
       for (const networkName of externalNetworks) {
         ensureDockerNetwork(networkName);
       }
