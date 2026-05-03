@@ -88,11 +88,9 @@ export async function provisionManagedMysqlDatabase(options: {
         '--label',
         'traefik.enable=true',
         '--label',
-        `traefik.tcp.routers.${containerName}.rule=HostSNI(\`${publicHost}\`)`,
+        `traefik.tcp.routers.${containerName}.rule=HostSNI(\`*\`)`,
         '--label',
         `traefik.tcp.routers.${containerName}.entrypoints=${config.traefikMysqlEntrypoint}`,
-        '--label',
-        `traefik.tcp.routers.${containerName}.tls=true`,
         '--label',
         `traefik.tcp.routers.${containerName}.service=${containerName}`,
         ...(publicAllowedIps.length > 0 ? [
