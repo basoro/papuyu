@@ -115,6 +115,7 @@ services:
       - "--entrypoints.web.forwardedHeaders.insecure=true"
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.websecure.forwardedHeaders.insecure=true"
+      - "--entrypoints.mysqlsecure.address=:3306"
       - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.myresolver.acme.email=admin@rshd.my.id"
@@ -126,6 +127,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "3306:3306"
       - "8080:8080" # Dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import { canonicalId } from './docker.service';
 import { config } from '../config/env';
 
-export const SHARED_DATABASE_NETWORK = 'papuyu-services-network';
+export const SHARED_DATABASE_NETWORK = 'papuyu-network';
 export const PUBLIC_PROXY_NETWORK = 'papuyu-network';
 const execFileAsync = promisify(execFile);
 
@@ -77,9 +77,6 @@ export async function provisionManagedMysqlDatabase(options: {
 
   await ensureSharedDatabaseNetwork(networkName);
   await ensureVolume(volumeName);
-  if (publicAccessEnabled) {
-    await ensureSharedDatabaseNetwork(PUBLIC_PROXY_NETWORK);
-  }
 
   try {
     await runDockerAsync(['rm', '-f', containerName], 30_000);
@@ -149,9 +146,7 @@ export async function provisionManagedMysqlDatabase(options: {
     '--max_connections=200'
   ], 120_000);
 
-  if (publicAccessEnabled && publicHost) {
-    await runDockerAsync(['network', 'connect', PUBLIC_PROXY_NETWORK, containerName], 30_000).catch(() => undefined);
-  }
+  // Redundant network connection removed because the container is already on papuyu-network
 }
 
 export async function waitForManagedDatabaseHealthy(containerName: string, timeoutMs = 120_000) {
