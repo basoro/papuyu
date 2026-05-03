@@ -284,6 +284,10 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
   const normalizedPublicSubdomain = publicAccessValidation.normalizedPublicSubdomain;
 
   const databaseId = `db_${nanoid()}`;
+  const prefix = databaseId.split('_')[1].substring(0, 4);
+  const prefixedName = `${prefix}-${normalizedName}`;
+  const prefixedDbName = `${prefix}_${db_name}`;
+  const prefixedUsername = `${prefix}_${username}`;
   const rootPassword = generateRandomSecret(28);
   const containerName = buildManagedDatabaseContainerName(databaseId);
   const volumeName = buildManagedDatabaseVolumeName(databaseId);
@@ -299,11 +303,11 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       databaseId,
-      normalizedName,
+      prefixedName,
       engine,
       String(version),
-      String(db_name),
-      String(username),
+      prefixedDbName,
+      prefixedUsername,
       encryptSecret(userPassword),
       encryptSecret(rootPassword),
       host,
@@ -326,8 +330,8 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
       credentials: {
         host,
         port: 3306,
-        database: String(db_name),
-        username: String(username),
+        database: prefixedDbName,
+        username: prefixedUsername,
         password: userPassword,
       },
       public_credentials: publicAccessEnabled && publicHost ? {
@@ -342,8 +346,8 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
       try {
         await provisionManagedMysqlDatabase({
           version: String(version),
-          dbName: String(db_name),
-          username: String(username),
+          dbName: prefixedDbName,
+          username: prefixedUsername,
           userPassword,
           rootPassword,
           containerName,

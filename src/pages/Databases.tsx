@@ -371,14 +371,17 @@ export default function DatabasesPage() {
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Resource Name</Label>
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="mysql-main" />
+            <p className="text-[10px] text-muted-foreground italic">Sistem akan menambahkan prefix unik otomatis.</p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Database Name</Label>
             <Input value={dbName} onChange={(event) => setDbName(event.target.value)} placeholder="app_db" />
+            <p className="text-[10px] text-muted-foreground italic">Prefixed otomatis.</p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">App Username</Label>
             <Input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="app_user" />
+            <p className="text-[10px] text-muted-foreground italic">Prefixed otomatis.</p>
           </div>
           <div className="space-y-1.5 xl:col-span-2">
             <Label className="text-xs text-muted-foreground">App Password</Label>
