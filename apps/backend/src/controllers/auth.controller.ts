@@ -5,7 +5,7 @@ import db from '../db/database';
 import { config } from '../config/env';
 
 export async function register(req: Request, res: Response) {
-  const { email, password } = req.body;
+  const { email, password, role: requestedRole } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -14,7 +14,25 @@ export async function register(req: Request, res: Response) {
   try {
     // Check if this is the first user
     const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
-    const role = userCount.count === 0 ? 'admin' : 'user';
+    
+    let role = 'user';
+    if (userCount.count === 0) {
+      role = 'admin';
+    } else if (requestedRole && ['user', 'client', 'admin', 'puskesmas'].includes(requestedRole)) {
+      // Only allow setting role if an admin is making the request
+      const authHeader = req.headers.authorization;
+      if (authHeader) {
+        try {
+          const token = authHeader.split(' ')[1];
+          const decoded = jwt.verify(token, config.jwtSecret) as any;
+          if (decoded.role === 'admin') {
+            role = requestedRole;
+          }
+        } catch (e) {
+          // Token invalid or not admin, role remains 'user'
+        }
+      }
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const stmt = db.prepare('INSERT INTO users (email, password, role) VALUES (?, ?, ?)');

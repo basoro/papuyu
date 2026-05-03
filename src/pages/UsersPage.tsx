@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 interface User {
   id: number;
   email: string;
-  role: "admin" | "client" | "user";
+  role: "admin" | "client" | "user" | "puskesmas";
   created_at: string;
 }
 
@@ -114,6 +114,7 @@ export default function UsersPage() {
               >
                 <option value="user">User</option>
                 <option value="client">Client</option>
+                <option value="puskesmas">Puskesmas</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
@@ -141,11 +142,12 @@ export default function UsersPage() {
                 ) : (
                   <select 
                     value={u.role}
-                    onChange={(e) => changeRole(u.id, e.target.value as "admin" | "client" | "user")}
+                    onChange={(e) => changeRole(u.id, e.target.value as "admin" | "client" | "user" | "puskesmas")}
                     className="bg-background text-[10px] uppercase tracking-widest text-foreground border border-border rounded px-2 py-1"
                   >
                     <option value="user">User (256MB)</option>
                     <option value="client">Client (512MB)</option>
+                    <option value="puskesmas">Puskesmas</option>
                     <option value="admin">Admin (Unlmt)</option>
                   </select>
                 )}

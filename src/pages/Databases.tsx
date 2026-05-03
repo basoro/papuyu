@@ -25,7 +25,9 @@ import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useProjects } from "@/context/ProjectContext";
+import { useAuth } from "@/context/AuthContext";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ManagedDatabase {
   id: string;
@@ -82,6 +84,22 @@ export default function DatabasesPage() {
   const [editPublicAllowedIps, setEditPublicAllowedIps] = useState("");
   const { toast } = useToast();
   const { projects, fetchProjects } = useProjects();
+  const { user } = useAuth();
+
+  const serverIp = import.meta.env.VITE_SERVER_IP;
+  const envDomain = import.meta.env.VITE_BASE_DOMAIN;
+  const baseDomain = envDomain && envDomain !== 'localhost' && envDomain !== serverIp ? envDomain : (serverIp ? `${serverIp}.nip.io` : 'localhost');
+  const additionalDomainsStr = import.meta.env.VITE_ADDITIONAL_DOMAINS;
+  const additionalDomains = additionalDomainsStr ? additionalDomainsStr.split(',').map((d: string) => d.trim()).filter(Boolean) : [];
+
+  const [selectedDomain, setSelectedDomain] = useState<string>(baseDomain);
+  const isPuskesmas = user?.role === 'puskesmas';
+
+  useEffect(() => {
+    if (user?.role === 'puskesmas') {
+      setSelectedDomain('puskesmas.online');
+    }
+  }, [user?.role]);
 
   const availableProjects = useMemo(
     () => [...projects].sort((a, b) => a.name.localeCompare(b.name)),
@@ -242,7 +260,30 @@ export default function DatabasesPage() {
   const openPublicAccessEditor = (database: ManagedDatabase) => {
     setEditTarget(database);
     setEditPublicAccessEnabled(Boolean(database.public_access_enabled));
-    setEditPublicSubdomain(database.public_subdomain || "");
+    
+    // Try to parse subdomain and domain
+    let sub = database.public_subdomain || "";
+    let dom = baseDomain;
+    
+    if (sub.includes('.')) {
+      const parts = sub.split('.');
+      const possibleSub = parts[0];
+      const possibleDom = parts.slice(1).join('.');
+      
+      if (additionalDomains.includes(possibleDom)) {
+        sub = possibleSub;
+        dom = possibleDom;
+      } else if (possibleDom === baseDomain) {
+        sub = possibleSub;
+        dom = baseDomain;
+      } else {
+        dom = 'custom';
+        // keep sub as is
+      }
+    }
+    
+    setEditPublicSubdomain(sub);
+    setSelectedDomain(dom);
     setEditPublicAllowedIps((database.public_allowed_ips_list || []).join("\n"));
   };
 
@@ -255,9 +296,14 @@ export default function DatabasesPage() {
 
     setIsActionSubmitting(true);
     try {
+      let finalSubdomain = editPublicSubdomain.trim();
+      if (finalSubdomain && selectedDomain !== 'custom' && selectedDomain !== baseDomain) {
+        finalSubdomain = `${finalSubdomain}.${selectedDomain}`;
+      }
+
       await apiRequest(`/databases/${editTarget.id}/public-access`, "PUT", {
         public_access_enabled: editPublicAccessEnabled,
-        public_subdomain: editPublicAccessEnabled ? editPublicSubdomain.trim() : undefined,
+        public_subdomain: editPublicAccessEnabled ? finalSubdomain : undefined,
         public_allowed_ips: editPublicAccessEnabled ? editPublicAllowedIps : undefined,
       });
       toast({
@@ -572,13 +618,30 @@ export default function DatabasesPage() {
               <Switch checked={editPublicAccessEnabled} onCheckedChange={setEditPublicAccessEnabled} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Public Subdomain</Label>
-              <Input
-                value={editPublicSubdomain}
-                onChange={(event) => setEditPublicSubdomain(event.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ""))}
-                placeholder="mysql-main"
-                disabled={!editPublicAccessEnabled}
-              />
+              <Label className="text-xs text-muted-foreground">{selectedDomain === 'custom' ? 'Custom Domain (TLD)' : 'Public Subdomain'}</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editPublicSubdomain}
+                  onChange={(event) => setEditPublicSubdomain(event.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ""))}
+                  placeholder={selectedDomain === 'custom' ? "example.com" : "mysql-main"}
+                  disabled={!editPublicAccessEnabled}
+                  className="bg-background font-mono text-sm"
+                />
+                <Select value={selectedDomain} onValueChange={setSelectedDomain} disabled={!editPublicAccessEnabled}>
+                  <SelectTrigger className="w-[180px] bg-background text-xs h-9">
+                    <SelectValue placeholder="Select domain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!isPuskesmas && <SelectItem value={baseDomain}>.{baseDomain}</SelectItem>}
+                    {additionalDomains
+                      .filter((domain: string) => !isPuskesmas || domain === 'puskesmas.online')
+                      .map((domain: string) => (
+                        <SelectItem key={domain} value={domain}>.{domain}</SelectItem>
+                      ))}
+                    <SelectItem value="custom">Custom TLD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <p className="text-[10px] text-amber-500">
                 Gunakan client MySQL dengan TLS, misalnya `--ssl-mode=REQUIRED`, dan pastikan entrypoint TCP Traefik sudah aktif di server.
               </p>

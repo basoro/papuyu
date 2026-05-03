@@ -34,6 +34,7 @@ const DATABASE_PUBLIC_COLUMNS = `
   managed_databases.user_id as user_id,
   managed_databases.created_at as created_at,
   users.email as owner_email,
+  users.role as owner_role,
   (
     SELECT COUNT(*)
     FROM project_database_attachments
@@ -53,12 +54,17 @@ function isValidPublicSubdomain(value: string): boolean {
   return /^[a-z0-9]([a-z0-9.-]{0,253}[a-z0-9])?$/.test(value);
 }
 
-function resolvePublicHost(subdomain?: string | null): string | null {
+function resolvePublicHost(subdomain?: string | null, role?: string): string | null {
   if (!subdomain) {
     return null;
   }
 
-  return subdomain.includes('.') ? subdomain : `${subdomain}.${config.domain}`;
+  if (subdomain.includes('.')) {
+    return subdomain;
+  }
+
+  const domain = role === 'puskesmas' ? 'puskesmas.online' : config.domain;
+  return `${subdomain}.${domain}`;
 }
 
 function logProjectMessage(projectId: string, message: string, level = 'info') {
@@ -141,7 +147,7 @@ function withComputedPublicFields<T extends Record<string, any>>(database: T): T
     public_access_enabled: Boolean(database.public_access_enabled),
     public_tls_enabled: database.public_tls_enabled == null ? true : Boolean(database.public_tls_enabled),
     public_allowed_ips_list: parseAllowedIps(database.public_allowed_ips),
-    public_host: resolvePublicHost(database.public_subdomain),
+    public_host: resolvePublicHost(database.public_subdomain, database.owner_role || database.role),
   };
 }
 

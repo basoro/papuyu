@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Anvil } from "lucide-react";
+import { Fish } from "lucide-react";
 
 export default function Register() {
   const { register } = useAuth();
@@ -33,7 +33,7 @@ export default function Register() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex items-center gap-2 justify-center">
-          <Anvil className="h-8 w-8 text-primary" />
+          <Fish className="h-8 w-8 text-primary" />
           <span className="text-2xl font-bold tracking-tight">Papuyu</span>
         </div>
         <p className="text-sm text-muted-foreground text-center">Sign up for Papuyu PaaS</p>

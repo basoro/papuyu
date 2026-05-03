@@ -48,6 +48,15 @@ export default function Projects() {
   const [selectedDomain, setSelectedDomain] = useState<string>(baseDomain);
   const [form, setForm] = useState(createInitialForm);
 
+  const isPuskesmas = user?.role === 'puskesmas';
+  
+  // Update selected domain if user is puskesmas
+  useState(() => {
+    if (user?.role === 'puskesmas') {
+      setSelectedDomain('puskesmas.online');
+    }
+  });
+
   const activeSource = form.project_type === "dockerfile" ? form.dockerfile_source : form.compose_source;
   const usesRepository = activeSource === "repo";
 
@@ -285,10 +294,12 @@ export default function Projects() {
                         <SelectValue placeholder="Select domain" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={baseDomain}>.{baseDomain}</SelectItem>
-                        {additionalDomains.map((domain: string) => (
-                          <SelectItem key={domain} value={domain}>.{domain}</SelectItem>
-                        ))}
+                        {!isPuskesmas && <SelectItem value={baseDomain}>.{baseDomain}</SelectItem>}
+                        {additionalDomains
+                          .filter((domain: string) => !isPuskesmas || domain === 'puskesmas.online')
+                          .map((domain: string) => (
+                            <SelectItem key={domain} value={domain}>.{domain}</SelectItem>
+                          ))}
                         <SelectItem value="custom">Custom TLD</SelectItem>
                       </SelectContent>
                     </Select>

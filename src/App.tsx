@@ -12,7 +12,7 @@ import Deployments from "./pages/Deployments";
 import UsersPage from "./pages/UsersPage";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
+// import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import AdminDocker from "./pages/AdminDocker";
 import AdminWaf from "./pages/AdminWaf";
@@ -37,7 +37,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* <Route path="/register" element={<Register />} /> */}
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
       <Route path="/databases" element={<ProtectedRoute><DatabasesPage /></ProtectedRoute>} />

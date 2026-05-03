@@ -31,7 +31,7 @@ export function updateUserRole(req: AuthRequest, res: Response) {
     return res.status(400).json({ error: 'Cannot change your own role' });
   }
 
-  if (!['user', 'client', 'admin'].includes(role)) {
+  if (!['user', 'client', 'admin', 'puskesmas'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
 
