@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS managed_databases (
   port                INTEGER NOT NULL DEFAULT 3306,
   container_name      TEXT NOT NULL UNIQUE,
   volume_name         TEXT NOT NULL UNIQUE,
-  network_name        TEXT NOT NULL DEFAULT 'papuyu-services-network',
+  network_name        TEXT NOT NULL DEFAULT 'papuyu-network',
   public_access_enabled INTEGER DEFAULT 0,
   public_subdomain    TEXT,
   public_port         INTEGER DEFAULT 3306,

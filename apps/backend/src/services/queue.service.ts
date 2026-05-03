@@ -14,7 +14,7 @@ import {
   replacePortInDockerfile, 
   injectEnvVars 
 } from './docker.service';
-import { SHARED_DATABASE_NETWORK } from './managed-db.service';
+import { SHARED_DATABASE_NETWORK } from './constants';
 import { decryptSecret } from '../utils/secrets';
 
 const connection = new IORedis({

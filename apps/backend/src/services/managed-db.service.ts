@@ -1,10 +1,7 @@
 import { execFile, execFileSync } from 'child_process';
 import { promisify } from 'util';
-import { canonicalId } from './docker.service';
+import { SHARED_DATABASE_NETWORK, PUBLIC_PROXY_NETWORK, canonicalId } from './constants';
 import { config } from '../config/env';
-
-export const SHARED_DATABASE_NETWORK = 'papuyu-network';
-export const PUBLIC_PROXY_NETWORK = 'papuyu-network';
 const execFileAsync = promisify(execFile);
 
 function runDocker(args: string[], timeout = 60_000): string {

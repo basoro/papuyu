@@ -3,15 +3,13 @@ import path from 'path';
 import fs from 'fs';
 import { config } from '../config/env';
 
-export function canonicalId(raw: string): string {
-  // lower-case, allow letters/digits/dash, collapse others to dash, trim length
-  return raw.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50);
-}
 
 function validateSubdomain(s: string): void {
   const ok = /^[a-z0-9]([a-z0-9.-]{0,253}[a-z0-9])?$/.test(s);
   if (!ok) throw new Error('Invalid subdomain or domain format');
 }
+
+import { SHARED_DATABASE_NETWORK, canonicalId } from './constants';
 
 function runDocker(args: string[], opts?: { timeout?: number; stdio?: 'pipe' | 'inherit'; cwd?: string }): string {
   return execFileSync('docker', args, {
@@ -147,7 +145,7 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
     '--label', `traefik.http.routers.papuyu-${safeProjectId}.rule=Host(\`${host}\`)`,
     '--label', `traefik.http.routers.papuyu-${safeProjectId}.service=papuyu-${safeProjectId}`,
     '--label', `traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}`,
-    '--label', 'traefik.docker.network=papuyu-network'
+    '--label', `traefik.docker.network=${SHARED_DATABASE_NETWORK}`
   ];
 
   // Optional HTTPS configurations based on global env
@@ -171,7 +169,7 @@ export async function runContainer(projectId: string, port: number, subdomain?: 
 
   const uniqueNetworks = Array.from(new Set([
     ...(extraNetworks.filter(Boolean)),
-    'papuyu-network',
+    SHARED_DATABASE_NETWORK,
   ]));
   for (const networkName of uniqueNetworks) {
     ensureDockerNetwork(networkName);
@@ -474,7 +472,10 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
           memory: ${ramLimitMB}M`;
       }
 
-      const externalNetworks = Array.from(new Set(extraNetworks.filter(n => n && n !== 'papuyu-network')));
+      const externalNetworks = Array.from(new Set(extraNetworks.filter(n => n && n !== SHARED_DATABASE_NETWORK)));
+      
+      // Ensure all networks exist before up
+      ensureDockerNetwork(SHARED_DATABASE_NETWORK);
       for (const networkName of externalNetworks) {
         ensureDockerNetwork(networkName);
       }
@@ -490,18 +491,18 @@ services:
   ${serviceName}:
     networks:
       - default
-      - papuyu-network${extraNetworkList}
+      - ${SHARED_DATABASE_NETWORK}${extraNetworkList}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.papuyu-${safeProjectId}.rule=Host(\`${host}\`)"
       - "traefik.http.routers.papuyu-${safeProjectId}.service=papuyu-${safeProjectId}"
       - "traefik.http.services.papuyu-${safeProjectId}.loadbalancer.server.port=${port}"
-      - "traefik.docker.network=papuyu-network"${tlsLabels}${wafLabels}${deployBlock}
+      - "traefik.docker.network=${SHARED_DATABASE_NETWORK}"${tlsLabels}${wafLabels}${deployBlock}
 
 networks:
   default:
     name: ${projectName}_default
-  papuyu-network:
+  ${SHARED_DATABASE_NETWORK}:
     external: true${extraNetworkDefinitions}
 `;
       overridePath = path.join(buildDir, 'docker-compose.override.yml');

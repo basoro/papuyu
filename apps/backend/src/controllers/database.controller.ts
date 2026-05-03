@@ -8,9 +8,9 @@ import {
   buildManagedDatabaseVolumeName,
   provisionManagedMysqlDatabase,
   removeManagedDatabase,
-  SHARED_DATABASE_NETWORK,
   waitForManagedDatabaseHealthy,
 } from '../services/managed-db.service';
+import { SHARED_DATABASE_NETWORK } from '../services/constants';
 import { deploymentQueue } from '../services/queue.service';
 import { decryptSecret, encryptSecret, generateRandomSecret } from '../utils/secrets';
 
