@@ -49,10 +49,10 @@ export default function Login() {
           <Button type="submit" className="w-full papuyu-btn-active" disabled={loading}>
             {loading ? "Signing in..." : "Sign in"}
           </Button>
-          <p className="text-xs text-muted-foreground text-center">
+          {/* <p className="text-xs text-muted-foreground text-center">
             Don't have an account?{" "}
             <Link to="/register" className="text-primary hover:underline">Register</Link>
-          </p>
+          </p> */}
         </form>
       </div>
     </div>
