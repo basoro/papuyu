@@ -508,11 +508,12 @@ export async function composeUp(projectId: string, buildDir: string, composeFile
         
         const deploy = isPrimary ? deployBlock : '';
 
+        // We force all services to use the shared papuyu-network as their default
+        // to avoid "all predefined address pools have been fully subnetted" errors.
         return `
   ${s}:
     networks:
-      - default
-      - ${SHARED_DATABASE_NETWORK}${extraNetworkList}${labels}${deploy}`;
+      - default${extraNetworkList}${labels}${deploy}`;
       }).join('');
 
       const overrideContent = `
@@ -521,9 +522,9 @@ services: ${servicesOverride}
 
 networks:
   default:
-    name: ${projectName}_default
-  ${SHARED_DATABASE_NETWORK}:
-    external: true${extraNetworkDefinitions}
+    external: true
+    name: ${SHARED_DATABASE_NETWORK}
+${extraNetworkDefinitions}
 `;
       overridePath = path.join(buildDir, 'docker-compose.override.yml');
       fs.writeFileSync(overridePath, overrideContent);

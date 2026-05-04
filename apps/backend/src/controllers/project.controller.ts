@@ -28,6 +28,7 @@ const PROJECT_PUBLIC_COLUMNS = `
   projects.dockerfile_source as dockerfile_source,
   projects.container_id as container_id,
   projects.status as status,
+  projects.base_domain as base_domain,
   projects.user_id as user_id,
   projects.created_at as created_at
 `;
