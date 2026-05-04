@@ -96,11 +96,21 @@ function validatePublicAccessSettings(options: {
   publicAllowedIps?: unknown;
 }) {
   const { databaseId, publicAccessEnabled, publicSubdomain, publicAllowedIps } = options;
-  const normalizedPublicSubdomain = publicAccessEnabled ? normalizePublicSubdomain(String(publicSubdomain || '')) : null;
+  let normalizedPublicSubdomain = publicAccessEnabled ? normalizePublicSubdomain(String(publicSubdomain || '')) : null;
   const allowedIps = publicAccessEnabled ? parseAllowedIps(publicAllowedIps) : [];
 
   if (publicAccessEnabled) {
-    if (!normalizedPublicSubdomain || !isValidPublicSubdomain(normalizedPublicSubdomain)) {
+    const prefix = databaseId ? databaseId.split('_')[1].substring(0, 4) : nanoid();
+    
+    if (!normalizedPublicSubdomain) {
+      // Auto-generate random subdomain with prefix
+      normalizedPublicSubdomain = `${prefix}-${nanoid()}`;
+    } else if (!normalizedPublicSubdomain.startsWith(`${prefix}-`)) {
+      // Ensure it has the prefix
+      normalizedPublicSubdomain = `${prefix}-${normalizedPublicSubdomain}`;
+    }
+
+    if (!isValidPublicSubdomain(normalizedPublicSubdomain)) {
       return { error: 'Valid public_subdomain is required when public access is enabled' };
     }
 
@@ -271,8 +281,12 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
     return res.status(400).json({ error: 'Password must be at least 8 characters long' });
   }
 
+  const databaseId = `db_${nanoid()}`;
+  const prefix = databaseId.split('_')[1].substring(0, 4);
+
   const publicAccessEnabled = Boolean(public_access_enabled);
   const publicAccessValidation = validatePublicAccessSettings({
+    databaseId,
     publicAccessEnabled,
     publicSubdomain: public_subdomain,
     publicAllowedIps: public_allowed_ips,
@@ -283,8 +297,6 @@ export function createManagedDatabase(req: AuthRequest, res: Response) {
   }
   const normalizedPublicSubdomain = publicAccessValidation.normalizedPublicSubdomain;
 
-  const databaseId = `db_${nanoid()}`;
-  const prefix = databaseId.split('_')[1].substring(0, 4);
   const prefixedName = `${prefix}-${normalizedName}`;
   const prefixedDbName = `${prefix}_${db_name}`;
   const prefixedUsername = `${prefix}_${username}`;

@@ -289,10 +289,6 @@ export default function DatabasesPage() {
 
   const updatePublicAccess = async () => {
     if (!editTarget) return;
-    if (editPublicAccessEnabled && !editPublicSubdomain.trim()) {
-      toast({ title: "Public Subdomain wajib diisi", description: "Isi subdomain publik jika ingin mengaktifkan akses publik.", variant: "destructive" });
-      return;
-    }
 
     setIsActionSubmitting(true);
     try {
@@ -645,6 +641,9 @@ export default function DatabasesPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                Kosongkan untuk otomatis/random dengan prefix unik.
+              </p>
               <p className="text-[10px] text-amber-500">
                 Gunakan client MySQL dengan TLS, misalnya `--ssl-mode=REQUIRED`, dan pastikan entrypoint TCP Traefik sudah aktif di server.
               </p>
